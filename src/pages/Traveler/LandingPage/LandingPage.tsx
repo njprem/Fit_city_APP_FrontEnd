@@ -1,5 +1,5 @@
 import Navbar from "../../../components/navbar";
-
+import Footer from "../../../components/footer";
 
 export const LandingPage = () => {
 
@@ -9,6 +9,7 @@ export const LandingPage = () => {
         <main className="p-6">
             {/* page content */}
         </main>
+        <Footer></Footer>
         </>
         
     );
