@@ -4,6 +4,12 @@ import Navbar from "../../../components/navbar";
 export const LandingPage = () => {
 
     return(
-        <Navbar/>
+        <>
+        <Navbar />             
+        <main className="p-6">
+            {/* page content */}
+        </main>
+        </>
+        
     );
 }
