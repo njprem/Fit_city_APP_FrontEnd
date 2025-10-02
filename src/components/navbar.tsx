@@ -26,7 +26,7 @@ export default function Navbar() {
         </div>
 
         {/* Right: actions */}
-        <ul className="flex min-w-[700px] items-center justify-between text-[#016B71]">
+        <ul className="flex min-w-[400px] items-center justify-between text-[#016B71]">
           <li>
             <Link to="/favorite" className="flex flex-col items-center leading-none">
               <span className="material-symbols-outlined text-2xl" aria-hidden>favorite</span>
