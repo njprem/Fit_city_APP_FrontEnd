@@ -33,7 +33,7 @@ export default function SearchBar({
         // container (pill)
         "flex items-center gap-3 rounded-full border border-black/5",
         "bg-amber-50 px-4 py-3 shadow-[0_2px_0_rgba(0,0,0,.08)]",
-        "w-[700px] h-[70px]",
+        "w-full h-[64px]",
         className,
       ].join(" ")}
     >

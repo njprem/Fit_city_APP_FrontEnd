@@ -5,13 +5,13 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
       <nav className="w-full border-b border-slate-200" aria-label="Primary">
-        <div className="w-full grid [grid-template-columns:_auto_minmax(480px,1fr)_auto] items-center gap-12 px-10 py-5">
+        <div className="w-full grid [grid-template-columns:_auto_minmax(320px,1fr)_auto] items-center gap-6 sm:gap-8 lg:gap-12 px-4 sm:px-6 lg:px-10 py-5">
           {/* Left: brand */}
-          <Link to="/" className="flex items-center justify-center gap-3">
+          <Link to="/" className="flex items-center justify-center gap-3 shrink-0">
             <img
               src={Logo}
               alt="FitCity Logo"
-              className="h-20 w-auto"
+              className="h-20 w-auto min-w-20"
             />
           </Link>
 
@@ -24,8 +24,8 @@ export default function Navbar() {
           </div>
 
           {/* Right: actions */}
-          <div className="flex justify-end items-center text-[#016B71]">
-              <ul className="flex items-center gap-12 text-[#016B71]">
+          <div className="flex justify-end items-center text-[#016B71] shrink-0">
+              <ul className="flex items-center gap-6 sm:gap-8 lg:gap-12 text-[#016B71] flex-nowrap">
                   <li>
                   <Link to="/favorite" className="flex flex-col items-center leading-none">
                       <span className="material-symbols-outlined text-2xl" aria-hidden>favorite</span>
