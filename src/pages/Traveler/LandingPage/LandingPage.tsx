@@ -1,14 +1,14 @@
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
-
+import SubNav from "../../../components/SubNav";
+import CategorySection from "../../../components/Category";
 export const LandingPage = () => {
 
     return(
         <>
-        <Navbar />             
-        <main className="p-6">
-            {/* page content */}
-        </main>
+        <Navbar />      
+        <SubNav/>       
+        <CategorySection/>
         <Footer></Footer>
         </>
         

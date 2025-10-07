@@ -4,14 +4,14 @@ import Logo from "../assets/Logo_fitcity.png";
 export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
-      <nav className="w-full border-b border-slate-200" aria-label="Primary">
+      <nav className="w-full h-24" aria-label="Primary">
         <div className="w-full grid [grid-template-columns:_auto_minmax(320px,1fr)_auto] items-center gap-6 sm:gap-8 lg:gap-12 px-4 sm:px-6 lg:px-10 py-5">
           {/* Left: brand */}
           <Link to="/" className="flex items-center justify-center gap-3 shrink-0">
             <img
               src={Logo}
               alt="FitCity Logo"
-              className="h-20 w-auto min-w-20"
+              className="h-25 w-auto min-w-20"
             />
           </Link>
 
