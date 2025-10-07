@@ -50,10 +50,10 @@ export default function Navbar() {
 
           <li>
             <Link
-              to="/signin"
+              to="/signup"
               className="rounded-full bg-[#016B71] px-5 py-2 font-bold text-white shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:bg-[#01585C] active:translate-y-[1px]"
             >
-              Sign in
+              Sign up
             </Link>
           </li>
         </ul>
