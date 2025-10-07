@@ -1,10 +1,8 @@
 export default function Footer() {
   return (
-    <footer className="w-full bg-[#D2F1F5] py-4">
-      <div className="max-w-screen-xl mx-auto text-center">
-        <p className="text-sm font-semibold text-black">
-          Copyright © 2026 <span className="font-bold">FitCity</span>. Find your perfect destination before you go
-        </p>
+    <footer className="bg-[#CDE9EB]">
+      <div className="mx-auto max-w-7xl px-4 py-3 text-center text-xs text-slate-800">
+        Copyright © 2026 FitCity. Find your perfect destination before you go
       </div>
     </footer>
   );
