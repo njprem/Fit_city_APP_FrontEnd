@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import Navbar from "../../../components/navbar";   // ให้ตรงกับชื่อไฟล์จริง (Navbar/navbar)
+import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
 
@@ -17,10 +17,9 @@ export default function SignInPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
-      {/* main จะขยายกินพื้นที่ที่เหลือทั้งหมด แล้วดัน footer ลงล่าง */}
       <main className="flex-1">
         <section className="relative w-full min-h-[70vh] overflow-hidden" aria-label="Hero background">
-          {/* BG image (อยู่ชั้นล่างสุด) */}
+          
           <img src={Hero} alt="" className="absolute inset-0 h-full w-full object-cover z-0" />
           {/* overlay (ทับรูป แต่ใต้คอนเทนต์) */}
           <div className="absolute inset-0 bg-black/10 z-10" />
