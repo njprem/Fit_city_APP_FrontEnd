@@ -54,8 +54,7 @@ function Menu({ label, items }: { label: string; items: Item[] }) {
 export default function SubNav() {
   return (
     <div className="sticky top-[96px] z-40 
-        bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70
-        border-b border-slate-200 shadow-sm">
+        bg-white border-slate-200 shadow-sm">
       <div className="ml-[8%] py-3 flex items-center gap-10">
         <Menu
           label="Places"
