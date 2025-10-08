@@ -1,34 +1,28 @@
 import React from "react";
+import Navbar from "../../../components/navbar";
+import Footer from "../../../components/footer";
 
 export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Navbar (you can replace this with your Navbar component later) */}
-      <header className="flex justify-between items-center px-10 py-4 bg-white shadow">
-        <img src="/src/assets/Logo_fitcity.png" alt="FitCity Logo" className="h-8" />
-        <nav className="flex items-center gap-8 text-teal-800">
-          <button>Favourite</button>
-          <button>EN/TH</button>
-          <button>Help</button>
-          <button className="bg-yellow-100 px-4 py-1 rounded-full">Profile</button>
-        </nav>
-      </header>
+      {/* Navbar */}
+      <Navbar showSearch={false} activePage="profile" />
 
       {/* Main Profile Card */}
       <main className="flex justify-center mt-10 flex-grow">
-        <div className="bg-white w-[80%] md:w-[70%] lg:w-[60%] rounded-lg shadow-md p-8">
+        <div className="bg-white w-[90%] sm:w-[80%] md:w-[60%] lg:w-[50%] xl:w-[60%] rounded-2xl shadow-sm p-6 md:p-8 border border-gray-100">
           {/* Top Section */}
-          <div className="flex items-center mb-6">
+          <div className="flex items-center mb-8">
             <img
               src="https://i.pravatar.cc/100"
               alt="Profile"
               className="w-16 h-16 rounded-full object-cover mr-4"
             />
             <div>
-              <h2 className="font-semibold text-lg">Alexa Rawles</h2>
+              <h2 className="font-bold text-lg text-gray-800">Alexa Rawles</h2>
               <p className="text-gray-500 text-sm">alexarawles@gmail.com</p>
             </div>
-            <button className="ml-auto bg-teal-800 text-white px-4 py-1 rounded hover:bg-teal-700">
+            <button className="ml-auto bg-[#006D66] text-white px-5 py-2 rounded-md hover:bg-[#005c56] transition">
               Save
             </button>
           </div>
@@ -36,47 +30,53 @@ export default function ProfilePage() {
           {/* Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium mb-1">Full Name</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Full Name
+              </label>
               <input
                 type="text"
                 value="Alexrawles Thalorian Crestfield"
-                className="w-full p-2 border rounded bg-gray-100"
+                className="w-full border border-gray-300 rounded-md bg-gray-100 text-gray-800 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#006D66]"
                 readOnly
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Username <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 placeholder="Your Nick Name"
-                className="w-full p-2 border rounded"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#006D66]"
               />
             </div>
           </div>
 
           {/* Email Section */}
           <div className="mt-8">
-            <label className="block text-sm font-medium mb-2">My Email Address</label>
-            <div className="flex items-center bg-gray-50 border rounded p-2 justify-between">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              My Email Address
+            </label>
+            <div className="flex items-center justify-between border border-gray-300 rounded-md px-3 py-2 bg-gray-50">
               <div className="flex items-center">
-                <span className="bg-teal-800 text-white rounded-full p-2 mr-3">
+                <span className="flex items-center justify-center w-8 h-8 bg-[#006D66] text-white rounded-full mr-3 text-sm">
                   ✉️
                 </span>
-                <p className="text-gray-700">alexarawles@gmail.com</p>
+                <p className="text-gray-800 text-sm">alexarawles@gmail.com</p>
               </div>
-              <button className="text-teal-700 text-sm">Reset password</button>
+              <button className="text-[#006D66] text-sm font-medium hover:underline">
+                Reset password
+              </button>
             </div>
 
-            <button className="mt-3 bg-teal-50 text-teal-700 px-3 py-2 rounded hover:bg-teal-100 text-sm">
+            <button className="mt-3 bg-[#E6F4F3] text-[#006D66] px-4 py-2 rounded-md hover:bg-[#d3ecea] text-sm font-medium">
               + Add Email Address
             </button>
           </div>
 
           {/* Delete Account Button */}
-          <div className="flex justify-end mt-10">
-            <button className="bg-teal-800 text-white px-6 py-2 rounded hover:bg-teal-700">
+          <div className="flex justify-end mt-8">
+            <button className="bg-[#006D66] text-white px-6 py-2 rounded-md hover:bg-[#005c56] transition">
               Delete account
             </button>
           </div>
@@ -84,9 +84,7 @@ export default function ProfilePage() {
       </main>
 
       {/* Footer */}
-      <footer className="bg-teal-50 text-center py-3 text-sm text-gray-600">
-        Copyright © 2026 FitCity. Find your perfect destination before you go
-      </footer>
+      <Footer />
     </div>
   );
 }
