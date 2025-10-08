@@ -19,8 +19,13 @@
     "@eslint-react/eslint-plugin": "^1.53.1",
     "@eslint/js": "^9.36.0",
     "@tailwindcss/postcss": "^4.1.13",
+<<<<<<< HEAD
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",
+=======
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+>>>>>>> 78099543ea5f099364d84b4f33f890755ed32325
     "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^5.0.3",
     "autoprefixer": "^10.4.21",
@@ -32,6 +37,6 @@
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.44.0",
-    "vite": "^7.1.7"
+    "vite": "^7.1.8"
   }
 }
