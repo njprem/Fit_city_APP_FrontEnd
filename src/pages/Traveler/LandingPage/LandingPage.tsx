@@ -10,7 +10,6 @@ export const LandingPage = () => {
         <SubNav />
         <CategorySection />
       </main>
-
       <Footer />
     </div>
   );
