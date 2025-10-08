@@ -5,23 +5,13 @@ import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
 import GoogleLogo from "../../../assets/G.webp";
 
-export default function SignUpPage() {
+export default function LogInPage() {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
-  const [confirmPwd, setConfirmPwd] = useState("");
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (pwd !== confirmPwd) {
-      alert("Passwords do not match");
-      return;
-    }
-    if (!acceptedTerms) {
-      alert("Please accept the Terms & Conditions");
-      return;
-    }
-    console.log({ email, pwd, confirmPwd });
+    console.log({ email, pwd });
   };
 
   return (
@@ -40,7 +30,7 @@ export default function SignUpPage() {
             <div className="mx-auto mt-6 sm:mt-10 max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
               <div className="px-6 pt-6 pb-2 text-center">
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  Sign Up
+                  Log In
                 </h1>
               </div>
 
@@ -69,42 +59,12 @@ export default function SignUpPage() {
                   />
                 </label>
 
-                <label className="block">
-                  <span className="mb-1 block text-sm text-slate-700">Confirm Password</span>
-                  <input
-                    type="password"
-                    required
-                    value={confirmPwd}
-                    onChange={(e) => setConfirmPwd(e.target.value)}
-                    placeholder="Confirm Password"
-                    className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-                  />
-                  {pwd && confirmPwd && pwd !== confirmPwd && (
-                    <p className="mt-1 text-sm text-red-600">Passwords do not match.</p>
-                  )}
-                </label>
-
-                <label className="flex items-start gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={acceptedTerms}
-                    onChange={(e) => setAcceptedTerms(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
-                  />
-                  <span>
-                    I agree to the
-                    {' '}<Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">Terms & Conditions</Link>
-                    {' '}and{' '}
-                    <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">Privacy Policy</Link>.
-                  </span>
-                </label>
-
                 <button
                   type="submit"
-                  disabled={!email || !pwd || !confirmPwd || pwd !== confirmPwd || !acceptedTerms}
+                  disabled={!email || !pwd}
                   className="mt-2 w-full rounded-md bg-slate-800 py-2.5 font-medium text-white shadow-sm transition hover:bg-slate-900 active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Sign Up
+                  Log In
                 </button>
 
                 <div className="flex items-center gap-3 py-1">
@@ -122,15 +82,20 @@ export default function SignUpPage() {
                   Continue with Google
                 </button>
 
+                <p className="text-xs text-slate-600 text-center">
+                  By continuing, you agree to our
+                  {' '}<Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">Terms & Conditions</Link>
+                  {' '}and{' '}
+                  <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">Privacy Policy</Link>.
+                </p>
+
                 <div className="flex items-center justify-between pt-2 text-sm">
-                  {/*<Link to="/forgot-password" className="text-slate-700 underline underline-offset-2 hover:text-slate-900">
+                  <Link to="/forgot-password" className="text-slate-700 underline underline-offset-2 hover:text-slate-900">
                     Forgot password?
-                  </Link> */}
-                  
-                  <Link to="/login" className="mx-auto text-slate-700 underline underline-offset-2 hover:text-slate-900">
-                    Log In
                   </Link>
-                  
+                  <Link to="/signup" className="text-slate-700 underline underline-offset-2 hover:text-slate-900">
+                    Sign Up
+                  </Link>
                 </div>
               </form>
             </div>
