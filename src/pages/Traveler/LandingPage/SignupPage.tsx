@@ -5,7 +5,7 @@ import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
 import GoogleLogo from "../../../assets/G.webp";
 
-export default function SignInPage() {
+export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
 
