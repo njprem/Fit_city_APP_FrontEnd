@@ -1,19 +1,40 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate} from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
 import GoogleLogo from "../../../assets/G.webp";
+import { getToken} from '../../../services/auth/authService';
+import { Navigate } from "react-router-dom";
+import { login } from "../../../api";
 
 export default function LogInPage() {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
-
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    console.log({ email, pwd });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setError(null);
+  setLoading(true);
+  try {
+    const data = await login(email, pwd);
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    console.log("Login successful!");
+    navigate("/", { replace: true }); 
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Login failed");
+  }
+  finally {
+    setLoading(false);
+  }
   };
-
+  if (getToken()) {
+    console.log("User already has token, redirecting to home");
+    return <Navigate to="/" replace />;
+  }
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
@@ -40,6 +61,7 @@ export default function LogInPage() {
                   <input
                     type="email"
                     required
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email"
@@ -52,6 +74,7 @@ export default function LogInPage() {
                   <input
                     type="password"
                     required
+                    autoComplete="current-password"
                     value={pwd}
                     onChange={(e) => setPwd(e.target.value)}
                     placeholder="Password"
@@ -61,12 +84,12 @@ export default function LogInPage() {
 
                 <button
                   type="submit"
-                  disabled={!email || !pwd}
+                  disabled={!email || !pwd || loading}
                   className="mt-2 w-full rounded-md bg-slate-800 py-2.5 font-medium text-white shadow-sm transition hover:bg-slate-900 active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Log In
+                  {loading ? "Logging in..." : "Log In"}
                 </button>
-
+                {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
                 <div className="flex items-center gap-3 py-1">
                   <div className="h-px flex-1 bg-slate-200" />
                   <span className="text-xs text-slate-500">OR</span>

@@ -1,7 +1,16 @@
 import SearchBar from "./searchBar";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Logo from "../assets/Logo_fitcity.png";
 export default function Navbar() {
+  const navigate = useNavigate();
+  
+  const handleLoginClick = () => {
+    console.log("Login button clicked, navigating to /login");
+    console.log("Current token:", localStorage.getItem('token'));
+    console.log("Current user:", localStorage.getItem('user'));
+    navigate("/login");
+  };
+  
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
       <nav className="w-full h-30" aria-label="Primary">
@@ -14,6 +23,7 @@ export default function Navbar() {
               className="h-25 w-auto min-w-20"
             />
           </Link>
+          {/* <div>kofjoejfoje</div> */}
 
           {/* Center: Search */}
           <div className="flex justify-center">
@@ -54,12 +64,12 @@ export default function Navbar() {
               </li>
 
               <li>
-                <Link
-                  to="/login"
+                <button
+                  onClick={handleLoginClick}
                   className="rounded-full bg-[#016B71] px-5 py-2 font-bold text-white shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:bg-[#01585C] active:translate-y-[1px]"
                 >
                   Log In
-                </Link>
+                </button>
               </li>
             </ul>
           </div>

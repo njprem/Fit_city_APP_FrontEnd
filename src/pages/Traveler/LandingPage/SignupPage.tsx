@@ -4,6 +4,7 @@ import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
 import GoogleLogo from "../../../assets/G.webp";
+import { register } from "../../../api";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -11,18 +12,29 @@ export default function SignUpPage() {
   const [confirmPwd, setConfirmPwd] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (pwd !== confirmPwd) {
-      alert("Passwords do not match");
-      return;
-    }
-    if (!acceptedTerms) {
-      alert("Please accept the Terms & Conditions");
-      return;
-    }
-    console.log({ email, pwd, confirmPwd });
-  };
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  if (pwd !== confirmPwd) {
+    alert("Passwords do not match");
+    return;
+  }
+  if (!acceptedTerms) {
+    alert("Please accept the Terms & Conditions");
+    return;
+  }
+
+  try {
+    const data = await register(email, pwd);
+    console.log("✅ Registration success:", data);
+
+    alert("Registration successful!");
+    window.location.href = "/login"; // redirect to login page
+  } catch (error) {
+    console.error("❌ Registration failed:", error);
+    alert(error instanceof Error ? error.message : "Registration failed");
+  }
+};
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
