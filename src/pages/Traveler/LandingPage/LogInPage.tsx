@@ -1,10 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate} from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
-import { getToken} from '../../../services/auth/authService';
-import { Navigate } from "react-router-dom";
+import { getToken } from "../../../services/auth/authService";
 import { login } from "../../../api";
 import GoogleSignInButton from "../../../components/GoogleSignInButton";
 
@@ -14,32 +13,34 @@ export default function LogInPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setError(null);
-  setLoading(true);
-  try {
-    await login(email, pwd);
-    console.log("Login successful!");
-    navigate("/", { replace: true }); 
-  } catch (err) {
-    setError(err instanceof Error ? err.message : "Login failed");
-  }
-  finally {
-    setLoading(false);
-  }
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      await login(email, pwd);
+      console.log("Login successful!");
+      navigate("/", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
+
   if (getToken()) {
     console.log("User already has token, redirecting to home");
     return <Navigate to="/" replace />;
   }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Navbar />
 
       <main className="flex-1">
         <section className="relative w-full min-h-[70vh] overflow-hidden" aria-label="Hero background">
-          
           <img src={Hero} alt="" className="absolute inset-0 h-full w-full object-cover z-0" />
           {/* overlay (ทับรูป แต่ใต้คอนเทนต์) */}
           <div className="absolute inset-0 bg-black/10 z-10" />
@@ -48,9 +49,7 @@ export default function LogInPage() {
           <div className="relative z-20 mx-auto max-w-7xl px-4 py-10 sm:py-16">
             <div className="mx-auto mt-6 sm:mt-10 max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
               <div className="px-6 pt-6 pb-2 text-center">
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  Log In
-                </h1>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Log In</h1>
               </div>
 
               <form onSubmit={onSubmit} className="px-6 pb-6 space-y-4">
@@ -87,7 +86,9 @@ export default function LogInPage() {
                 >
                   {loading ? "Logging in..." : "Log In"}
                 </button>
+
                 {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+
                 <div className="flex items-center gap-3 py-1">
                   <div className="h-px flex-1 bg-slate-200" />
                   <span className="text-xs text-slate-500">OR</span>
@@ -104,10 +105,15 @@ export default function LogInPage() {
                 />
 
                 <p className="text-xs text-slate-600 text-center">
-                  By continuing, you agree to our
-                  {' '}<Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">Terms & Conditions</Link>
-                  {' '}and{' '}
-                  <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">Privacy Policy</Link>.
+                  By continuing, you agree to our{" "}
+                  <Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">
+                    Terms & Conditions
+                  </Link>{" "}
+                  and{" "}
+                  <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">
+                    Privacy Policy
+                  </Link>
+                  .
                 </p>
 
                 <div className="flex items-center justify-between pt-2 text-sm">
