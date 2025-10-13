@@ -114,6 +114,50 @@ export const loginWithGoogle = async (idToken: string): Promise<AuthSession> => 
   return data;
 };
 
+const parseErrorMessage = (payload: string): string => {
+  if (!payload) {
+    return "Unexpected error";
+  }
+  try {
+    const data = JSON.parse(payload) as { error?: string; message?: string };
+    if (data?.error) {
+      return data.error;
+    }
+    if (data?.message) {
+      return data.message;
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+  return payload;
+};
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/reset-request`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(parseErrorMessage(msg) || "Unable to initiate password reset");
+  }
+}
+
+export async function confirmPasswordReset(email: string, otp: string, newPassword: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/password/reset-confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, otp, new_password: newPassword }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(parseErrorMessage(msg) || "Unable to reset password");
+  }
+}
+
 const isLikelyAuthUser = (value: unknown): value is AuthUser => {
   if (!value || typeof value !== "object") {
     return false;
