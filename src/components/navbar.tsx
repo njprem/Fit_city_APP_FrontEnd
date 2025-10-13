@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import SearchBar from "./searchBar";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import Logo from "../assets/Logo_fitcity.png";
-import { type AuthUser, getToken, getUser, logout } from "../services/auth/authService";
+import {
+  type AuthUser,
+  getToken,
+  getUser,
+  logout,
+} from "../services/auth/authService";
 
-export default function Navbar() {
+interface NavbarProps {
+  showSearch?: boolean; // optional, default = true
+  activePage?: string;  // optional, e.g. "profile", "favorite", etc.
+}
+
+export default function Navbar({ showSearch = true, activePage }: NavbarProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIcon, setActiveIcon] = useState<"favorite" | "language" | "help" | null>(null);
@@ -12,7 +22,7 @@ export default function Navbar() {
   const location = useLocation();
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Check login state when page loads and when localStorage changes
+  // Check login state
   useEffect(() => {
     const token = getToken();
     const u = getUser();
@@ -25,22 +35,18 @@ export default function Navbar() {
     };
 
     window.addEventListener("storage", onStorage);
-    window.addEventListener("authChanged", onStorage); // custom event for instant update
+    window.addEventListener("authChanged", onStorage);
     return () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("authChanged", onStorage);
     };
   }, []);
 
-  const handleProfileClick = () => {
-    setIsMenuOpen((prev) => !prev);
-  };
-
+  const handleProfileClick = () => setIsMenuOpen((prev) => !prev);
   const handleEditProfile = () => {
     setIsMenuOpen(false);
     navigate("/profile");
   };
-
   const handleLogout = () => {
     logout();
     setUser(null);
@@ -48,25 +54,20 @@ export default function Navbar() {
     navigate("/login");
   };
 
+  // Click outside or ESC closes menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
       }
     };
-
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsMenuOpen(false);
-      }
+      if (event.key === "Escape") setIsMenuOpen(false);
     };
 
     if (isMenuOpen) {
       document.addEventListener("mousedown", handleClickOutside);
       document.addEventListener("keydown", handleKeyDown);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
     }
 
     return () => {
@@ -76,9 +77,7 @@ export default function Navbar() {
   }, [isMenuOpen]);
 
   useEffect(() => {
-    if (!user) {
-      setIsMenuOpen(false);
-    }
+    if (!user) setIsMenuOpen(false);
   }, [user]);
 
   useEffect(() => {
@@ -95,10 +94,7 @@ export default function Navbar() {
     activeIcon === icon ? "text-[#000000]" : "text-[#016B71] hover:text-[#01585C]";
 
   const displayName =
-    user?.firstName ??
-    user?.name ??
-    user?.email ??
-    "Profile";
+    user?.firstName ?? user?.name ?? user?.email ?? "Profile";
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
@@ -106,21 +102,18 @@ export default function Navbar() {
         <div className="w-full grid [grid-template-columns:_auto_minmax(320px,1fr)_auto] items-center gap-6 sm:gap-8 lg:gap-12 px-4 sm:px-6 lg:px-10 py-5">
           {/* Left: brand */}
           <Link to="/" className="flex items-center justify-center gap-3 shrink-0">
-            <img
-              src={Logo}
-              alt="FitCity Logo"
-              className="h-25 w-auto min-w-20"
-            />
+            <img src={Logo} alt="FitCity Logo" className="h-25 w-auto min-w-20" />
           </Link>
-          {/* <div>kofjoejfoje</div> */}
 
           {/* Center: Search */}
-          <div className="flex justify-center">
-            <SearchBar
-              onSearch={(q) => console.log("search:", q)}
-              className="w-full h-[64px] max-w-[780px] lg:max-w-[880px] xl:max-w-[980px] 2xl:max-w-[1100px]"
-            />
-          </div>
+          {showSearch && (
+            <div className="flex justify-center">
+              <SearchBar
+                onSearch={(q) => console.log("search:", q)}
+                className="w-full h-[64px] max-w-[780px] lg:max-w-[880px] xl:max-w-[980px] 2xl:max-w-[1100px]"
+              />
+            </div>
+          )}
 
           {/* Right: actions */}
           <div className="flex justify-end items-center text-[#016B71] shrink-0">
