@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
-import Hero from "../../../assets/bg1.jpg";
+import Hero from "../../../assets/mainbg.jpg";
 import { getToken } from "../../../services/auth/authService";
 import { login } from "../../../api";
 import GoogleSignInButton from "../../../components/GoogleSignInButton";
