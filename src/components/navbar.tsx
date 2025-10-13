@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import SearchBar from "./searchBar";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import Logo from "../assets/Logo_fitcity.png";
 import { type AuthUser, getToken, getUser, logout } from "../services/auth/authService";
 
 export default function Navbar() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeIcon, setActiveIcon] = useState<"favorite" | "language" | "help" | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   // Check login state when page loads and when localStorage changes
@@ -79,6 +81,19 @@ export default function Navbar() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (location.pathname.startsWith("/favorite")) {
+      setActiveIcon("favorite");
+    } else if (location.pathname.startsWith("/help")) {
+      setActiveIcon("help");
+    } else {
+      setActiveIcon((prev) => (prev === "language" ? prev : null));
+    }
+  }, [location.pathname]);
+
+  const getActionClasses = (icon: "favorite" | "language" | "help") =>
+    activeIcon === icon ? "text-[#000000]" : "text-[#016B71] hover:text-[#01585C]";
+
   const displayName =
     user?.firstName ??
     user?.name ??
@@ -111,7 +126,11 @@ export default function Navbar() {
           <div className="flex justify-end items-center text-[#016B71] shrink-0">
             <ul className="flex items-center gap-6 sm:gap-8 lg:gap-12 text-[#016B71] flex-nowrap">
               <li>
-                <Link to="/favorite" className="flex flex-col items-center leading-none">
+                <Link
+                  to="/favorite"
+                  onClick={() => setActiveIcon("favorite")}
+                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("favorite")}`}
+                >
                   <span className="material-symbols-outlined text-2xl" aria-hidden>
                     favorite
                   </span>
@@ -120,7 +139,11 @@ export default function Navbar() {
               </li>
 
               <li>
-                <button type="button" className="flex flex-col items-center leading-none">
+                <button
+                  type="button"
+                  onClick={() => setActiveIcon("language")}
+                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("language")}`}
+                >
                   <span className="material-symbols-outlined text-2xl" aria-hidden>
                     language
                   </span>
@@ -129,7 +152,11 @@ export default function Navbar() {
               </li>
 
               <li>
-                <Link to="/help" className="flex flex-col items-center leading-none">
+                <Link
+                  to="/help"
+                  onClick={() => setActiveIcon("help")}
+                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("help")}`}
+                >
                   <span className="material-symbols-outlined text-2xl" aria-hidden>
                     help
                   </span>
