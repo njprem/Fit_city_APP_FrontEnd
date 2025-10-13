@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
-import { register } from "../../../api";
+import { fetchCurrentUser, register } from "../../../api";
 import GoogleSignInButton from "../../../components/GoogleSignInButton";
 
 export default function SignUpPage() {
@@ -30,8 +30,22 @@ export default function SignUpPage() {
       const data = await register(email, pwd);
       console.log("✅ Registration success:", data);
 
-      alert("Registration successful!");
-      navigate("/login", { replace: true });
+      let meMessage = "Registration successful!";
+      let currentUser = data.user;
+      try {
+        currentUser = await fetchCurrentUser();
+        console.log("ℹ️ Current user data:", currentUser);
+        if (currentUser?.profile_completed) {
+          meMessage = "This account was already registered. Redirecting to your profile.";
+        } else {
+          meMessage = "Registration successful! Please complete your profile.";
+        }
+      } catch (meError) {
+        console.error("⚠️ Failed retrieving current user:", meError);
+      }
+
+      alert(meMessage);
+      navigate("/profile", { replace: true, state: { user: currentUser } });
     } catch (error) {
       console.error("❌ Registration failed:", error);
       alert(error instanceof Error ? error.message : "Registration failed");
@@ -132,9 +146,15 @@ export default function SignUpPage() {
 
                 <GoogleSignInButton
                   onStart={() => setGoogleError(null)}
-                  onSuccess={() => {
+                  onSuccess={(result) => {
                     setGoogleError(null);
-                    navigate("/", { replace: true });
+                    const user = result?.user;
+                    if (user?.profile_completed) {
+                      alert("This Google account is already registered. Redirecting to your profile.");
+                    } else {
+                      alert("Registration successful! Please complete your profile.");
+                    }
+                    navigate("/profile", { replace: true, state: { user } });
                   }}
                   onError={(message) => setGoogleError(message)}
                 />
