@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import SearchBar from "./searchBar";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import Logo from "../assets/Logo_fitcity.png";
 import {
   type AuthUser,
@@ -17,7 +17,9 @@ interface NavbarProps {
 export default function Navbar({ showSearch = true, activePage }: NavbarProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeIcon, setActiveIcon] = useState<"favorite" | "language" | "help" | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   // Check login state
@@ -78,6 +80,19 @@ export default function Navbar({ showSearch = true, activePage }: NavbarProps) {
     if (!user) setIsMenuOpen(false);
   }, [user]);
 
+  useEffect(() => {
+    if (location.pathname.startsWith("/favorite")) {
+      setActiveIcon("favorite");
+    } else if (location.pathname.startsWith("/help")) {
+      setActiveIcon("help");
+    } else {
+      setActiveIcon((prev) => (prev === "language" ? prev : null));
+    }
+  }, [location.pathname]);
+
+  const getActionClasses = (icon: "favorite" | "language" | "help") =>
+    activeIcon === icon ? "text-[#000000]" : "text-[#016B71] hover:text-[#01585C]";
+
   const displayName =
     user?.firstName ?? user?.name ?? user?.email ?? "Profile";
 
@@ -106,9 +121,8 @@ export default function Navbar({ showSearch = true, activePage }: NavbarProps) {
               <li>
                 <Link
                   to="/favorite"
-                  className={`flex flex-col items-center leading-none ${
-                    activePage === "favorite" ? "text-[#004F53] font-semibold" : ""
-                  }`}
+                  onClick={() => setActiveIcon("favorite")}
+                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("favorite")}`}
                 >
                   <span className="material-symbols-outlined text-2xl" aria-hidden>
                     favorite
@@ -118,7 +132,11 @@ export default function Navbar({ showSearch = true, activePage }: NavbarProps) {
               </li>
 
               <li>
-                <button type="button" className="flex flex-col items-center leading-none">
+                <button
+                  type="button"
+                  onClick={() => setActiveIcon("language")}
+                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("language")}`}
+                >
                   <span className="material-symbols-outlined text-2xl" aria-hidden>
                     language
                   </span>
@@ -129,9 +147,8 @@ export default function Navbar({ showSearch = true, activePage }: NavbarProps) {
               <li>
                 <Link
                   to="/help"
-                  className={`flex flex-col items-center leading-none ${
-                    activePage === "help" ? "text-[#004F53] font-semibold" : ""
-                  }`}
+                  onClick={() => setActiveIcon("help")}
+                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("help")}`}
                 >
                   <span className="material-symbols-outlined text-2xl" aria-hidden>
                     help

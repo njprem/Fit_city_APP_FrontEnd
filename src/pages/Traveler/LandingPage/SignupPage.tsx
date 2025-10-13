@@ -15,28 +15,28 @@ export default function SignUpPage() {
   const navigate = useNavigate();
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (pwd !== confirmPwd) {
-    alert("Passwords do not match");
-    return;
-  }
-  if (!acceptedTerms) {
-    alert("Please accept the Terms & Conditions");
-    return;
-  }
+    if (pwd !== confirmPwd) {
+      alert("Passwords do not match");
+      return;
+    }
+    if (!acceptedTerms) {
+      alert("Please accept the Terms & Conditions");
+      return;
+    }
 
-  try {
-    const data = await register(email, pwd);
-    console.log("✅ Registration success:", data);
+    try {
+      const data = await register(email, pwd);
+      console.log("✅ Registration success:", data);
 
-    alert("Registration successful!");
-    navigate("/login", { replace: true });
-  } catch (error) {
-    console.error("❌ Registration failed:", error);
-    alert(error instanceof Error ? error.message : "Registration failed");
-  }
-};
+      alert("Registration successful!");
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("❌ Registration failed:", error);
+      alert(error instanceof Error ? error.message : "Registration failed");
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -44,7 +44,6 @@ export default function SignUpPage() {
 
       <main className="flex-1">
         <section className="relative w-full min-h-[70vh] overflow-hidden" aria-label="Hero background">
-          
           <img src={Hero} alt="" className="absolute inset-0 h-full w-full object-cover z-0" />
           {/* overlay (ทับรูป แต่ใต้คอนเทนต์) */}
           <div className="absolute inset-0 bg-black/10 z-10" />
@@ -106,10 +105,14 @@ export default function SignUpPage() {
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                   />
                   <span>
-                    I agree to the
-                    {' '}<Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">Terms & Conditions</Link>
-                    {' '}and{' '}
-                    <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">Privacy Policy</Link>.
+                    I agree to the{" "}
+                    <Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">
+                      Terms & Conditions
+                    </Link>{" "}
+                    and{" "}
+                    <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">
+                      Privacy Policy
+                    </Link>.
                   </span>
                 </label>
 
@@ -135,19 +138,15 @@ export default function SignUpPage() {
                   }}
                   onError={(message) => setGoogleError(message)}
                 />
-                {googleError && (
-                  <p className="text-sm text-red-600 text-center">{googleError}</p>
-                )}
+                {googleError && <p className="text-sm text-red-600 text-center">{googleError}</p>}
 
                 <div className="flex items-center justify-between pt-2 text-sm">
                   {/*<Link to="/forgot-password" className="text-slate-700 underline underline-offset-2 hover:text-slate-900">
                     Forgot password?
                   </Link> */}
-                  
                   <Link to="/login" className="mx-auto text-slate-700 underline underline-offset-2 hover:text-slate-900">
                     Log In
                   </Link>
-                  
                 </div>
               </form>
             </div>

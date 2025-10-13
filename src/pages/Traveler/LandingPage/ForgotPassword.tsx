@@ -36,25 +36,23 @@
 //   }, [cooldown]);
 
 //   // ========== API calls (แทนที่ด้วย endpoint จริงของคุณ) ==========
+//   async function apiRequestOtp(payload: { email: string }): Promise<ApiResp> {
+//     // ตัวอย่าง:
+//     // const res = await fetch("/api/auth/request-otp", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+//     // return await res.json();
 
-//   // async function apiRequestOtp(payload: { email: string }): Promise<ApiResp> {
-  
-//   //   // ตัวอย่าง:
-//   //   // const res = await fetch("/api/auth/request-otp", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
-//   //   // return await res.json();
+//     await new Promise(r => setTimeout(r, 700));
+//     return { ok: true };
+//   }
 
-//   //   await new Promise(r => setTimeout(r, 700));
-//   //   return { ok: true };
-//   // }
+//   async function apiResetPassword(payload: { email: string; otp: string; newPassword: string }): Promise<ApiResp> {
+//     // ตัวอย่าง:
+//     // const res = await fetch("/api/auth/reset-password", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+//     // return await res.json();
 
-//   // async function apiResetPassword(payload: { email: string; otp: string; newPassword: string }): Promise<ApiResp> {
-//   //   // ตัวอย่าง:
-//   //   // const res = await fetch("/api/auth/reset-password", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
-//   //   // return await res.json();
-
-//   //   await new Promise(r => setTimeout(r, 900));
-//   //   return { ok: true };
-//   // }
+//     await new Promise(r => setTimeout(r, 900));
+//     return { ok: true };
+//   }
 //   // ===============================================================
 
 //   const onSendOtp = async (e: FormEvent) => {
