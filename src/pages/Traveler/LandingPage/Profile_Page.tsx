@@ -8,6 +8,7 @@ import {
   updateProfile,
   type UpdateProfilePayload,
   deleteUserAccount,
+  changePassword,
 } from "../../../api";
 import { getUser, logout, type AuthUser } from "../../../services/auth/authService";
 
@@ -40,6 +41,7 @@ export default function ProfilePage() {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [resetError, setResetError] = useState<string | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
   const location = useLocation();
   const locationUser =
     (location.state as { user?: AuthUser } | undefined | null)?.user;
@@ -242,15 +244,31 @@ export default function ProfilePage() {
     setShowConfirmReset(true);
   };
 
-  const handleConfirmReset = () => {
-    setShowConfirmReset(false);
-    setShowResetPopup(false);
-    setCurrentPwd("");
-    setNewPwd("");
-    setConfirmPwd("");
+  const handleConfirmReset = async () => {
+    if (resetLoading) {
+      return;
+    }
+
+    setResetLoading(true);
     setResetError(null);
-    setSaveSuccess(null);
-    setResetSuccess("Password updated successfully.");
+    try {
+      await changePassword(currentPwd, newPwd);
+      setShowConfirmReset(false);
+      setShowResetPopup(false);
+      setCurrentPwd("");
+      setNewPwd("");
+      setConfirmPwd("");
+      setResetError(null);
+      setSaveSuccess(null);
+      setResetSuccess("Password updated successfully.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Unable to update password right now.";
+      setResetError(message);
+      setShowConfirmReset(false);
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   return (
@@ -582,9 +600,14 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={handleResetPassword}
-                className="bg-[#006D66] text-white px-5 py-2 rounded-md hover:bg-[#005c56] transition font-medium"
+                disabled={resetLoading}
+                className={`px-5 py-2 rounded-md font-medium transition ${
+                  resetLoading
+                    ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                    : "bg-[#006D66] text-white hover:bg-[#005c56]"
+                }`}
               >
-                Update password
+                {resetLoading ? "Checking..." : "Update password"}
               </button>
               <button
                 type="button"
@@ -612,14 +635,24 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={handleConfirmReset}
-                className="bg-[#D1F2E0] text-[#006D66] font-semibold px-6 py-2 rounded-md hover:bg-[#BFE9D3] transition"
+                disabled={resetLoading}
+                className={`font-semibold px-6 py-2 rounded-md transition ${
+                  resetLoading
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-[#D1F2E0] text-[#006D66] hover:bg-[#BFE9D3]"
+                }`}
               >
-                DONE
+                {resetLoading ? "Updating..." : "DONE"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowConfirmReset(false)}
-                className="bg-gray-900 text-white font-semibold px-6 py-2 rounded-md hover:bg-gray-800 transition"
+                disabled={resetLoading}
+                className={`font-semibold px-6 py-2 rounded-md transition ${
+                  resetLoading
+                    ? "bg-gray-700 text-gray-300 cursor-not-allowed"
+                    : "bg-gray-900 text-white hover:bg-gray-800"
+                }`}
               >
                 EXIT
               </button>

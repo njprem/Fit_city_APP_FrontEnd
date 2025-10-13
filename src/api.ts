@@ -158,6 +158,21 @@ export async function confirmPasswordReset(email: string, otp: string, newPasswo
   }
 }
 
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/auth/password`, {
+    method: "POST",
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(parseErrorMessage(msg) || "Unable to change password");
+  }
+}
+
 const isLikelyAuthUser = (value: unknown): value is AuthUser => {
   if (!value || typeof value !== "object") {
     return false;
