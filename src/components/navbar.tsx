@@ -1,16 +1,43 @@
+import { useEffect, useState } from "react";
 import SearchBar from "./searchBar";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../assets/Logo_fitcity.png";
+import { type AuthUser, getToken, getUser } from "../services/auth/authService";
+
 export default function Navbar() {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const navigate = useNavigate();
-  
-  const handleLoginClick = () => {
-    console.log("Login button clicked, navigating to /login");
-    console.log("Current token:", localStorage.getItem('token'));
-    console.log("Current user:", localStorage.getItem('user'));
-    navigate("/login");
+
+  // Check login state when page loads and when localStorage changes
+  useEffect(() => {
+    const token = getToken();
+    const u = getUser();
+    setUser(token && u ? u : null);
+
+    const onStorage = () => {
+      const t = getToken();
+      const uu = getUser();
+      setUser(t && uu ? uu : null);
+    };
+
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("authChanged", onStorage); // custom event for instant update
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("authChanged", onStorage);
+    };
+  }, []);
+
+  const handleProfileClick = () => {
+    navigate("/profile");
   };
-  
+
+  const displayName =
+    user?.firstName ??
+    user?.name ??
+    user?.email ??
+    "Profile";
+
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
       <nav className="w-full h-30" aria-label="Primary">
@@ -63,14 +90,35 @@ export default function Navbar() {
                 </Link>
               </li>
 
-              <li>
-                <button
-                  onClick={handleLoginClick}
-                  className="rounded-full bg-[#016B71] px-5 py-2 font-bold text-white shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:bg-[#01585C] active:translate-y-[1px]"
-                >
-                  Log In
-                </button>
-              </li>
+              {user ? (
+                <>
+                  <li>
+                    <button
+                      type="button"
+                      onClick={handleProfileClick}
+                      className="flex flex-col items-center leading-none text-[#016B71] hover:text-[#01585C]"
+                    >
+                      <span className="material-symbols-outlined text-2xl" aria-hidden>
+                        account_circle
+                      </span>
+                      <span className="text-xs mt-1 truncate max-w-[6rem]" title={displayName}>
+                        {displayName}
+                      </span>
+                    </button>
+                  </li>
+
+      
+                </>
+              ) : (
+                <li>
+                  <Link
+                    to="/login"
+                    className="rounded-full bg-[#016B71] px-5 py-2 font-bold text-white shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:bg-[#01585C] active:translate-y-[1px]"
+                  >
+                    Log In
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
         </div>

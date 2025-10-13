@@ -1,5 +1,5 @@
 import { API_BASE_URL } from './config';
-import { logout } from './services/auth/authService';
+import { logout, setAuthSession, type AuthSession } from './services/auth/authService';
 
 const handleUnauthorized = () => {
   logout();
@@ -47,7 +47,7 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   }
 };
 
-export async function register(email: string, password: string) {
+export async function register(email: string, password: string): Promise<AuthSession> {
   const res = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -59,15 +59,14 @@ export async function register(email: string, password: string) {
     throw new Error(msg || "Registration failed");
   }
 
-  const data = await res.json();
+  const data = (await res.json()) as AuthSession;
 
-  // Optional: save JWT
-  localStorage.setItem("token", data.token);
-  
+  setAuthSession(data);
+
   return data;
 }
 
-export const login = async (email: string, password: string) => {
+export const login = async (email: string, password: string): Promise<AuthSession> => {
   const res = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -78,8 +77,26 @@ export const login = async (email: string, password: string) => {
     const msg = await res.text();
     throw new Error(msg || 'Login failed');
   }
-  const data = await res.json();
-  localStorage.setItem('token', data.token);
+  const data = (await res.json()) as AuthSession;
+  setAuthSession(data);
+
+  return data;
+};
+
+export const loginWithGoogle = async (idToken: string): Promise<AuthSession> => {
+  const res = await fetch(`${API_BASE_URL}/api/v1/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || "Google login failed");
+  }
+
+  const data = (await res.json()) as AuthSession;
+  setAuthSession(data);
 
   return data;
 };

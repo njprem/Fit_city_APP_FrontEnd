@@ -3,10 +3,10 @@ import { Link, useNavigate} from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
-import GoogleLogo from "../../../assets/G.webp";
 import { getToken} from '../../../services/auth/authService';
 import { Navigate } from "react-router-dom";
 import { login } from "../../../api";
+import GoogleSignInButton from "../../../components/GoogleSignInButton";
 
 export default function LogInPage() {
   const [email, setEmail] = useState("");
@@ -19,9 +19,7 @@ export default function LogInPage() {
   setError(null);
   setLoading(true);
   try {
-    const data = await login(email, pwd);
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
+    await login(email, pwd);
     console.log("Login successful!");
     navigate("/", { replace: true }); 
   } catch (err) {
@@ -96,14 +94,14 @@ export default function LogInPage() {
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => console.log("Sign in with Google")}
-                  className="w-full rounded-md border border-slate-300 bg-white py-2.5 font-medium text-slate-800 shadow-sm hover:bg-slate-50 active:translate-y-[1px] inline-flex items-center justify-center gap-2"
-                >
-                  <img src={GoogleLogo} alt="" width={20} height={20} aria-hidden />
-                  Continue with Google
-                </button>
+                <GoogleSignInButton
+                  onStart={() => setError(null)}
+                  onSuccess={() => {
+                    setError(null);
+                    navigate("/", { replace: true });
+                  }}
+                  onError={(message) => setError(message)}
+                />
 
                 <p className="text-xs text-slate-600 text-center">
                   By continuing, you agree to our
