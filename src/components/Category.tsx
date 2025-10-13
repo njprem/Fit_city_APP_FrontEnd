@@ -1,4 +1,4 @@
-import mainpic from "../assets/mountain_climbing.jpg"
+import mainpic from "../assets/mainbg.jpg"
 
 export default function CategorySection() {
   return (
