@@ -8,7 +8,7 @@ export default function CategorySection() {
         <img
           src={mainpic}
           alt="Mountain hikers"
-          className="block w-full h-[500px] sm:h-[600px] md:h-[700px] lg:h-[800px] object-cover"
+          className="relative flex w-full min-h-screen items-start justify-center overflow-hidden bg-fixed bg-cover bg-top"
         />
 
         {/* Overlay content */}
