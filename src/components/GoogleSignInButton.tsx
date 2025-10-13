@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { loginWithGoogle } from "../api";
+import { fetchCurrentUser, loginWithGoogle } from "../api";
 import { GOOGLE_CLIENT_ID } from "../config";
 import { ensureGoogleScript } from "../services/auth/googleClient";
+import { type AuthSession, type AuthUser } from "../services/auth/authService";
 
 type Props = {
   className?: string;
   label?: string;
   onStart?: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (context?: { session: AuthSession; user: AuthUser }) => void;
   onError?: (message: string) => void;
   disabled?: boolean;
 };
@@ -72,10 +73,19 @@ export default function GoogleSignInButton({
         setLoading(true);
         setMessage(null);
         onStart?.();
-        await loginWithGoogle(credential);
+        const session = await loginWithGoogle(credential);
+        let user: AuthUser = session.user;
+
+        try {
+          const me = await fetchCurrentUser();
+          user = me;
+        } catch (meError) {
+          console.error("[GoogleSignIn] Failed to fetch current user:", meError);
+        }
+
         setLoading(false);
         setMessage(null);
-        onSuccess?.();
+        onSuccess?.({ session, user });
       } catch (err) {
         setLoading(false);
         reportError(err);

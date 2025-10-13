@@ -18,7 +18,11 @@ export interface AuthUser {
   email?: string;
   firstName?: string;
   lastName?: string;
+  fullName?: string;
+  full_name?: string;
   name?: string;
+  username?: string;
+  user_image_url?: string;
   role?: string;
   role_id?: string;
   role_name?: string;

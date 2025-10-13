@@ -2,8 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
-import Hero from "../../../assets/BG.jpg";
-import { register } from "../../../api";
+import Hero from "../../../assets/mainbg.jpg";
+import { fetchCurrentUser, register } from "../../../api";
 import GoogleSignInButton from "../../../components/GoogleSignInButton";
 
 export default function SignUpPage() {
@@ -30,8 +30,22 @@ export default function SignUpPage() {
       const data = await register(email, pwd);
       console.log("✅ Registration success:", data);
 
-      alert("Registration successful!");
-      navigate("/login", { replace: true });
+      let meMessage = "Registration successful!";
+      let currentUser = data.user;
+      try {
+        currentUser = await fetchCurrentUser();
+        console.log("ℹ️ Current user data:", currentUser);
+        if (currentUser?.profile_completed) {
+          meMessage = "This account was already registered. Redirecting to your profile.";
+        } else {
+          meMessage = "Registration successful! Please complete your profile.";
+        }
+      } catch (meError) {
+        console.error("⚠️ Failed retrieving current user:", meError);
+      }
+
+      alert(meMessage);
+      navigate("/profile", { replace: true, state: { user: currentUser } });
     } catch (error) {
       console.error("❌ Registration failed:", error);
       alert(error instanceof Error ? error.message : "Registration failed");
@@ -43,14 +57,17 @@ export default function SignUpPage() {
       <Navbar />
 
       <main className="flex-1">
-        <section className="relative w-full min-h-[70vh] overflow-hidden" aria-label="Hero background">
-          <img src={Hero} alt="" className="absolute inset-0 h-full w-full object-cover z-0" />
+        <section
+          className="relative flex w-full min-h-screen items-start justify-center overflow-hidden bg-fixed bg-cover bg-top"
+          aria-label="Hero background"
+          style={{ backgroundImage: `url(${Hero})` }}
+        >
           {/* overlay (ทับรูป แต่ใต้คอนเทนต์) */}
-          <div className="absolute inset-0 bg-black/10 z-10" />
+          <div className="pointer-events-none absolute inset-0 z-10 bg-black/10" />
 
           {/* content */}
-          <div className="relative z-20 mx-auto max-w-7xl px-4 py-10 sm:py-16">
-            <div className="mx-auto mt-6 sm:mt-10 max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
+          <div className="relative z-20 mx-auto w-full max-w-7xl px-4 py-10 sm:py-16">
+            <div className="mx-auto mt-12 sm:mt-16 max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
               <div className="px-6 pt-6 pb-2 text-center">
                 <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
                   Sign Up
@@ -132,9 +149,15 @@ export default function SignUpPage() {
 
                 <GoogleSignInButton
                   onStart={() => setGoogleError(null)}
-                  onSuccess={() => {
+                  onSuccess={(result) => {
                     setGoogleError(null);
-                    navigate("/", { replace: true });
+                    const user = result?.user;
+                    if (user?.profile_completed) {
+                      alert("This Google account is already registered. Redirecting to your profile.");
+                    } else {
+                      alert("Registration successful! Please complete your profile.");
+                    }
+                    navigate("/profile", { replace: true, state: { user } });
                   }}
                   onError={(message) => setGoogleError(message)}
                 />
