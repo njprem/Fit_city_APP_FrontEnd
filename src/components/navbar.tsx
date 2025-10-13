@@ -11,7 +11,7 @@ import {
 
 interface NavbarProps {
   showSearch?: boolean; // optional, default = true
-  activePage?: string;  // optional, e.g. "profile", "favorite", etc.
+  activePage?: string; // optional, e.g. "profile", "favorite", etc.
 }
 
 export default function Navbar({ showSearch = true }: NavbarProps) {
@@ -93,8 +93,7 @@ export default function Navbar({ showSearch = true }: NavbarProps) {
   const getActionClasses = (icon: "favorite" | "language" | "help") =>
     activeIcon === icon ? "text-[#000000]" : "text-[#016B71] hover:text-[#01585C]";
 
-  const displayName =
-    user?.firstName ?? user?.name ?? user?.email ?? "Profile";
+  const displayName = user?.firstName ?? user?.name ?? user?.email ?? "Profile";
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white">

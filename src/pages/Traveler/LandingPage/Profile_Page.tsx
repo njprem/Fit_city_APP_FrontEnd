@@ -33,8 +33,9 @@ export default function ProfilePage() {
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const location = useLocation<{ user?: AuthUser }>();
-  const locationUser = location.state?.user;
+  const location = useLocation();
+  const locationUser =
+    (location.state as { user?: AuthUser } | undefined | null)?.user;
   const navigate = useNavigate();
 
   const applyUser = useCallback((user: AuthUser | null | undefined, options: { force?: boolean } = {}) => {
@@ -262,6 +263,7 @@ export default function ProfilePage() {
             </div>
 
             <button
+              type="button"
               onClick={handleSave}
               disabled={!fullName.trim() || !username.trim() || saving}
               className={`ml-auto px-5 py-2 rounded-md transition font-medium ${
@@ -329,7 +331,7 @@ export default function ProfilePage() {
                   {emailAddress || "you@example.com"}
                 </p>
               </div>
-              <button className="text-[#006D66] text-sm font-medium hover:underline whitespace-nowrap">
+              <button type="button" className="text-[#006D66] text-sm font-medium hover:underline whitespace-nowrap">
                 Reset password
               </button>
             </div>
@@ -338,6 +340,7 @@ export default function ProfilePage() {
           {/* Delete Button */}
           <div className="flex justify-end mt-8">
             <button
+              type="button"
               onClick={handleDeleteClick}
               disabled={deleting}
               className={`px-6 py-2 rounded-md transition font-medium ${
@@ -377,6 +380,7 @@ export default function ProfilePage() {
       </label>
       <div className="mt-5">
         <button
+          type="button"
           onClick={() => setShowImagePopup(false)}
           className="text-sm text-gray-500 hover:underline"
         >
@@ -401,20 +405,22 @@ export default function ProfilePage() {
 	        <p className="text-sm text-red-600 mb-4">{deleteError}</p>
 	      )}
 
-	      <div className="flex justify-center gap-4">
-	        <button
-	          onClick={handleDeleteConfirm}
-	          disabled={deleting}
-	          className={`font-semibold px-6 py-2 rounded-md transition ${
-	            deleting
-	              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+      <div className="flex justify-center gap-4">
+        <button
+          type="button"
+          onClick={handleDeleteConfirm}
+          disabled={deleting}
+          className={`font-semibold px-6 py-2 rounded-md transition ${
+            deleting
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
 	              : "bg-[#B3261E] text-white hover:bg-[#9a1f19]"
 	          }`}
 	        >
 	          {deleting ? "Deleting..." : "Delete"}
 	        </button>
 
-	        <button
+        <button
+          type="button"
           onClick={() => {
             setShowDeletePopup(false);
             setDeleteError(null);
@@ -446,6 +452,7 @@ export default function ProfilePage() {
 
       <div className="flex justify-center gap-4">
         <button
+          type="button"
           onClick={() => void handleConfirm()}
           disabled={saving}
           className={`font-semibold px-6 py-2 rounded-md transition ${
@@ -458,6 +465,7 @@ export default function ProfilePage() {
         </button>
 
         <button
+          type="button"
           onClick={() => setShowConfirmPopup(false)}
           disabled={saving}
           className={`font-semibold px-6 py-2 rounded-md transition ${
