@@ -1,18 +1,39 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
-import GoogleLogo from "../../../assets/G.webp";
+import { getToken } from "../../../services/auth/authService";
+import { login } from "../../../api";
+import GoogleSignInButton from "../../../components/GoogleSignInButton";
 
 export default function LogInPage() {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log({ email, pwd });
+    setError(null);
+    setLoading(true);
+
+    try {
+      await login(email, pwd);
+      console.log("Login successful!");
+      navigate("/", { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (getToken()) {
+    console.log("User already has token, redirecting to home");
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -20,7 +41,6 @@ export default function LogInPage() {
 
       <main className="flex-1">
         <section className="relative w-full min-h-[70vh] overflow-hidden" aria-label="Hero background">
-          
           <img src={Hero} alt="" className="absolute inset-0 h-full w-full object-cover z-0" />
           {/* overlay (ทับรูป แต่ใต้คอนเทนต์) */}
           <div className="absolute inset-0 bg-black/10 z-10" />
@@ -29,9 +49,7 @@ export default function LogInPage() {
           <div className="relative z-20 mx-auto max-w-7xl px-4 py-10 sm:py-16">
             <div className="mx-auto mt-6 sm:mt-10 max-w-md rounded-2xl bg-white shadow-xl ring-1 ring-black/5">
               <div className="px-6 pt-6 pb-2 text-center">
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-                  Log In
-                </h1>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Log In</h1>
               </div>
 
               <form onSubmit={onSubmit} className="px-6 pb-6 space-y-4">
@@ -40,6 +58,7 @@ export default function LogInPage() {
                   <input
                     type="email"
                     required
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Email"
@@ -52,6 +71,7 @@ export default function LogInPage() {
                   <input
                     type="password"
                     required
+                    autoComplete="current-password"
                     value={pwd}
                     onChange={(e) => setPwd(e.target.value)}
                     placeholder="Password"
@@ -61,11 +81,13 @@ export default function LogInPage() {
 
                 <button
                   type="submit"
-                  disabled={!email || !pwd}
+                  disabled={!email || !pwd || loading}
                   className="mt-2 w-full rounded-md bg-slate-800 py-2.5 font-medium text-white shadow-sm transition hover:bg-slate-900 active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Log In
+                  {loading ? "Logging in..." : "Log In"}
                 </button>
+
+                {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
 
                 <div className="flex items-center gap-3 py-1">
                   <div className="h-px flex-1 bg-slate-200" />
@@ -73,20 +95,25 @@ export default function LogInPage() {
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => console.log("Sign in with Google")}
-                  className="w-full rounded-md border border-slate-300 bg-white py-2.5 font-medium text-slate-800 shadow-sm hover:bg-slate-50 active:translate-y-[1px] inline-flex items-center justify-center gap-2"
-                >
-                  <img src={GoogleLogo} alt="" width={20} height={20} aria-hidden />
-                  Continue with Google
-                </button>
+                <GoogleSignInButton
+                  onStart={() => setError(null)}
+                  onSuccess={() => {
+                    setError(null);
+                    navigate("/", { replace: true });
+                  }}
+                  onError={(message) => setError(message)}
+                />
 
                 <p className="text-xs text-slate-600 text-center">
-                  By continuing, you agree to our
-                  {' '}<Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">Terms & Conditions</Link>
-                  {' '}and{' '}
-                  <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">Privacy Policy</Link>.
+                  By continuing, you agree to our{" "}
+                  <Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">
+                    Terms & Conditions
+                  </Link>{" "}
+                  and{" "}
+                  <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">
+                    Privacy Policy
+                  </Link>
+                  .
                 </p>
 
                 <div className="flex items-center justify-between pt-2 text-sm">
