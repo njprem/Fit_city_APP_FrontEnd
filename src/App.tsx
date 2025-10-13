@@ -1,11 +1,11 @@
 import "./App.css";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { LandingPage } from "./pages/Traveler/LandingPage/LandingPage";
+import { LandingPage } from './pages/Traveler/LandingPage/LandingPage';
+import ProfilePage from "./pages/Traveler/LandingPage/Profile_Page";
 import LoginPage from "./pages/Traveler/LandingPage/LogInPage";
 import SignUpPage from "./pages/Traveler/LandingPage/SignupPage";
 import TermandCondition from "./pages/Traveler/LandingPage/TermandCondition";
 import ForgotPassword from "./pages/Traveler/LandingPage/ForgotPassword";
-import ProfilePage from "./pages/Traveler/LandingPage/Profile_Page";
 import FavoritePage from "./pages/Traveler/Favorite/FavoritePage";
 import HelpPage from "./pages/Traveler/Help/HelpPage";
 import RequireAuth from "./components/RequireAuth";
