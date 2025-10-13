@@ -1,18 +1,22 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
-import GoogleLogo from "../../../assets/G.webp";
+import { fetchCurrentUser, register } from "../../../api";
+import GoogleSignInButton from "../../../components/GoogleSignInButton";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     if (pwd !== confirmPwd) {
       alert("Passwords do not match");
       return;
@@ -21,7 +25,31 @@ export default function SignUpPage() {
       alert("Please accept the Terms & Conditions");
       return;
     }
-    console.log({ email, pwd, confirmPwd });
+
+    try {
+      const data = await register(email, pwd);
+      console.log("✅ Registration success:", data);
+
+      let meMessage = "Registration successful!";
+      let currentUser = data.user;
+      try {
+        currentUser = await fetchCurrentUser();
+        console.log("ℹ️ Current user data:", currentUser);
+        if (currentUser?.profile_completed) {
+          meMessage = "This account was already registered. Redirecting to your profile.";
+        } else {
+          meMessage = "Registration successful! Please complete your profile.";
+        }
+      } catch (meError) {
+        console.error("⚠️ Failed retrieving current user:", meError);
+      }
+
+      alert(meMessage);
+      navigate("/profile", { replace: true, state: { user: currentUser } });
+    } catch (error) {
+      console.error("❌ Registration failed:", error);
+      alert(error instanceof Error ? error.message : "Registration failed");
+    }
   };
 
   return (
@@ -30,7 +58,6 @@ export default function SignUpPage() {
 
       <main className="flex-1">
         <section className="relative w-full min-h-[70vh] overflow-hidden" aria-label="Hero background">
-          
           <img src={Hero} alt="" className="absolute inset-0 h-full w-full object-cover z-0" />
           {/* overlay (ทับรูป แต่ใต้คอนเทนต์) */}
           <div className="absolute inset-0 bg-black/10 z-10" />
@@ -92,10 +119,14 @@ export default function SignUpPage() {
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
                   />
                   <span>
-                    I agree to the
-                    {' '}<Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">Terms & Conditions</Link>
-                    {' '}and{' '}
-                    <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">Privacy Policy</Link>.
+                    I agree to the{" "}
+                    <Link to="/terms" className="underline underline-offset-2 hover:text-slate-900">
+                      Terms & Conditions
+                    </Link>{" "}
+                    and{" "}
+                    <Link to="/privacy" className="underline underline-offset-2 hover:text-slate-900">
+                      Privacy Policy
+                    </Link>.
                   </span>
                 </label>
 
@@ -113,24 +144,29 @@ export default function SignUpPage() {
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => console.log("Sign in with Google")}
-                  className="w-full rounded-md border border-slate-300 bg-white py-2.5 font-medium text-slate-800 shadow-sm hover:bg-slate-50 active:translate-y-[1px] inline-flex items-center justify-center gap-2"
-                >
-                  <img src={GoogleLogo} alt="" width={20} height={20} aria-hidden />
-                  Continue with Google
-                </button>
+                <GoogleSignInButton
+                  onStart={() => setGoogleError(null)}
+                  onSuccess={(result) => {
+                    setGoogleError(null);
+                    const user = result?.user;
+                    if (user?.profile_completed) {
+                      alert("This Google account is already registered. Redirecting to your profile.");
+                    } else {
+                      alert("Registration successful! Please complete your profile.");
+                    }
+                    navigate("/profile", { replace: true, state: { user } });
+                  }}
+                  onError={(message) => setGoogleError(message)}
+                />
+                {googleError && <p className="text-sm text-red-600 text-center">{googleError}</p>}
 
                 <div className="flex items-center justify-between pt-2 text-sm">
                   {/*<Link to="/forgot-password" className="text-slate-700 underline underline-offset-2 hover:text-slate-900">
                     Forgot password?
                   </Link> */}
-                  
                   <Link to="/login" className="mx-auto text-slate-700 underline underline-offset-2 hover:text-slate-900">
                     Log In
                   </Link>
-                  
                 </div>
               </form>
             </div>

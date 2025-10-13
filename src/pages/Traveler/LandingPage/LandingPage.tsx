@@ -1,7 +1,8 @@
-import Navbar from "../../../components/navbar"; 
+import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import SubNav from "../../../components/SubNav";
 import CategorySection from "../../../components/Category";
+
 export const LandingPage = () => {
   return (
     <div className="min-h-screen flex flex-col">
