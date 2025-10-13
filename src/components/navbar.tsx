@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SearchBar from "./searchBar";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../assets/Logo_fitcity.png";
-import { type AuthUser, getToken, getUser } from "../services/auth/authService";
+import { type AuthUser, getToken, getUser, logout } from "../services/auth/authService";
 
 export default function Navbar() {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   // Check login state when page loads and when localStorage changes
   useEffect(() => {
@@ -29,8 +31,53 @@ export default function Navbar() {
   }, []);
 
   const handleProfileClick = () => {
+    setIsMenuOpen((prev) => !prev);
+  };
+
+  const handleEditProfile = () => {
+    setIsMenuOpen(false);
     navigate("/profile");
   };
+
+  const handleLogout = () => {
+    logout();
+    setUser(null);
+    setIsMenuOpen(false);
+    navigate("/login");
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleKeyDown);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!user) {
+      setIsMenuOpen(false);
+    }
+  }, [user]);
 
   const displayName =
     user?.firstName ??
@@ -91,12 +138,14 @@ export default function Navbar() {
               </li>
 
               {user ? (
-                <>
-                  <li>
+                <li>
+                  <div className="relative" ref={menuRef}>
                     <button
                       type="button"
                       onClick={handleProfileClick}
-                      className="flex flex-col items-center leading-none text-[#016B71] hover:text-[#01585C]"
+                      className="flex flex-col items-center leading-none text-[#016B71] hover:text-[#01585C] focus:outline-none"
+                      aria-haspopup="menu"
+                      aria-expanded={isMenuOpen}
                     >
                       <span className="material-symbols-outlined text-2xl" aria-hidden>
                         account_circle
@@ -105,10 +154,33 @@ export default function Navbar() {
                         {displayName}
                       </span>
                     </button>
-                  </li>
 
-      
-                </>
+                    {isMenuOpen && (
+                      <div
+                        role="menu"
+                        className="absolute right-0 mt-3 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-xl z-50"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={handleEditProfile}
+                          className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                        >
+                          Edit Profile
+                        </button>
+                        <div className="my-1 h-px bg-slate-100" />
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={handleLogout}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Log Out
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </li>
               ) : (
                 <li>
                   <Link
