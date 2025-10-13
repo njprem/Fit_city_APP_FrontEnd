@@ -1,28 +1,42 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/BG.jpg";
-import GoogleLogo from "../../../assets/G.webp";
+import { register } from "../../../api";
+import GoogleSignInButton from "../../../components/GoogleSignInButton";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (pwd !== confirmPwd) {
-      alert("Passwords do not match");
-      return;
-    }
-    if (!acceptedTerms) {
-      alert("Please accept the Terms & Conditions");
-      return;
-    }
-    console.log({ email, pwd, confirmPwd });
-  };
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  if (pwd !== confirmPwd) {
+    alert("Passwords do not match");
+    return;
+  }
+  if (!acceptedTerms) {
+    alert("Please accept the Terms & Conditions");
+    return;
+  }
+
+  try {
+    const data = await register(email, pwd);
+    console.log("✅ Registration success:", data);
+
+    alert("Registration successful!");
+    navigate("/login", { replace: true });
+  } catch (error) {
+    console.error("❌ Registration failed:", error);
+    alert(error instanceof Error ? error.message : "Registration failed");
+  }
+};
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -113,14 +127,17 @@ export default function SignUpPage() {
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => console.log("Sign in with Google")}
-                  className="w-full rounded-md border border-slate-300 bg-white py-2.5 font-medium text-slate-800 shadow-sm hover:bg-slate-50 active:translate-y-[1px] inline-flex items-center justify-center gap-2"
-                >
-                  <img src={GoogleLogo} alt="" width={20} height={20} aria-hidden />
-                  Continue with Google
-                </button>
+                <GoogleSignInButton
+                  onStart={() => setGoogleError(null)}
+                  onSuccess={() => {
+                    setGoogleError(null);
+                    navigate("/", { replace: true });
+                  }}
+                  onError={(message) => setGoogleError(message)}
+                />
+                {googleError && (
+                  <p className="text-sm text-red-600 text-center">{googleError}</p>
+                )}
 
                 <div className="flex items-center justify-between pt-2 text-sm">
                   {/*<Link to="/forgot-password" className="text-slate-700 underline underline-offset-2 hover:text-slate-900">

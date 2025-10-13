@@ -5,7 +5,8 @@ import ProfilePage from "./pages/Traveler/LandingPage/Profile_Page";
 import LoginPage from "./pages/Traveler/LandingPage/LogInPage";
 import SignUpPage from "./pages/Traveler/LandingPage/SignupPage";
 import TermandCondition from './pages/Traveler/LandingPage/TermandCondition';
-import ForgotPassword from './pages/Traveler/LandingPage/ForgotPassword';
+import RequireAuth from './components/RequireAuth';
+// import ForgotPassword from './pages/Traveler/LandingPage/ForgotPassword';
 
 export default function App() {
   return (
@@ -17,7 +18,10 @@ export default function App() {
             <Route path="/login" element={<LoginPage/>} />
             <Route path="/signup" element={<SignUpPage/>} />
             <Route path="/terms" element={<TermandCondition/>} />
-            <Route path="/forgot-password" element={<ForgotPassword/>} />
+            <Route element={<RequireAuth />}>
+            {/* <Route path="/admin/dashboard" element={<AdminDashboard />} /> */}
+            </Route>
+            {/* <Route path="/forgot-password" element={<ForgotPassword/>} /> */}
           </Routes>
       </Router>
    </>
