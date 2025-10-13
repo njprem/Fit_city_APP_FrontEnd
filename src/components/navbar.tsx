@@ -14,7 +14,7 @@ interface NavbarProps {
   activePage?: string;  // optional, e.g. "profile", "favorite", etc.
 }
 
-export default function Navbar({ showSearch = true, activePage }: NavbarProps) {
+export default function Navbar({ showSearch = true }: NavbarProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeIcon, setActiveIcon] = useState<"favorite" | "language" | "help" | null>(null);
