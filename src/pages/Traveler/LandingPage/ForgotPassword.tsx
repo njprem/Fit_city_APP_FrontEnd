@@ -25,7 +25,7 @@ export default function ForgotPasswordOnePage() {
   // validators
   const isEmailValid = /\S+@\S+\.\S+/.test(email);
   const isOtpValid = otp.trim().length >= 6; // ปรับตามกฎ OTP
-  const isPasswordValid = pwd.length >= 8;   // ปรับ policy ตามต้องการ
+  const isPasswordValid = pwd.length >= 12;  // ปรับ policy ตามต้องการ
   const isMatch = pwd === pwd2;
 
   useEffect(() => {
