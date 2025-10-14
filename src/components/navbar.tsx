@@ -21,9 +21,6 @@ export default function Navbar({ showSearch = true }: NavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const menuRef = useRef<HTMLDivElement | null>(null);
-  // const rightClusterRef = useRef<HTMLDivElement | null>(null);
-  // const [rightWidth, setRightWidth] = useState(0);
-  // const [viewportWidth, setViewportWidth] = useState<number | null>(null);
 
   // Check login state
   useEffect(() => {
@@ -93,47 +90,18 @@ export default function Navbar({ showSearch = true }: NavbarProps) {
     }
   }, [location.pathname]);
 
-  {/*useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const handleResize = () => setViewportWidth(window.innerWidth);
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (!rightClusterRef.current || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setRightWidth(entry.contentRect.width);
-      }
-    });
-
-    observer.observe(rightClusterRef.current);
-    return () => observer.disconnect();
-  }, []);*/}
-
   const getActionClasses = (icon: "favorite" | "language" | "help") =>
     activeIcon === icon ? "text-[#000000]" : "text-[#016B71] hover:text-[#01585C]";
 
   const displayName = user?.firstName ?? user?.name ?? user?.email ?? "Profile";
-  {/*const balancedLeftWidth =
-    viewportWidth && viewportWidth >= 768 ? Math.min(rightWidth, viewportWidth / 2) : 0;
-  const leftSlotStyle: CSSProperties | undefined =
-    balancedLeftWidth > 0 ? { minWidth: `${balancedLeftWidth}px` } : undefined;*/}
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
       <nav className="w-full h-30" aria-label="Primary">
-        {/*</nav><div className="w-full grid [grid-template-columns:_auto_minmax(320px,1fr)_auto] items-center gap-6 sm:gap-8 lg:gap-12 px-4 sm:px-6 lg:px-10 py-5">*/}
         <div className="w-full
           grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-center
-          ggap-x-10 px-6 py-5">
+          gap-x-10 px-12 py-5">
+            
           {/* Left: brand */}
           <div className="flex items-center justify-self-start">
             <Link to="/" className="flex items-center justify-center gap-3 shrink-0">
@@ -143,7 +111,7 @@ export default function Navbar({ showSearch = true }: NavbarProps) {
 
           {/* Center: Search */}
           {showSearch && (
-            <div className="w-full max-w-[880px] mx-4 md:mx-6">
+            <div className="min-w-0 w-full">
               <SearchBar
                 onSearch={(q) => console.log("search:", q)}
                 className="w-full"
@@ -164,17 +132,6 @@ export default function Navbar({ showSearch = true }: NavbarProps) {
                 </span>
                 <span className="text-xs mt-1">Favourite</span>
               </Link>
-
-              {/*<button
-                type="button"
-                onClick={() => setActiveIcon("language")}
-                className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("language")}`}
-              >
-                <span className="material-symbols-outlined text-2xl" aria-hidden>
-                  language
-                </span>
-                <span className="text-xs mt-1">EN/TH</span>
-              </button>*/}
 
               <Link
                 to="/help"

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import type { Location } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import Hero from "../../../assets/mainbg.jpg";
@@ -13,6 +14,12 @@ export default function LogInPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: Location } | null)?.from;
+  const rawRedirect = from
+    ? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
+    : "/";
+  const redirectPath = rawRedirect === "/unauthorized" ? "/" : rawRedirect;
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -22,7 +29,7 @@ export default function LogInPage() {
     try {
       await login(email, pwd);
       console.log("Login successful!");
-      navigate("/", { replace: true });
+      navigate(redirectPath, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -31,8 +38,8 @@ export default function LogInPage() {
   };
 
   if (getToken()) {
-    console.log("User already has token, redirecting to home");
-    return <Navigate to="/" replace />;
+    console.log("User already has token, redirecting to previous page");
+    return <Navigate to={redirectPath} replace />;
   }
 
   return (
@@ -102,7 +109,7 @@ export default function LogInPage() {
                   onStart={() => setError(null)}
                   onSuccess={() => {
                     setError(null);
-                    navigate("/", { replace: true });
+                    navigate(redirectPath, { replace: true });
                   }}
                   onError={(message) => setError(message)}
                 />

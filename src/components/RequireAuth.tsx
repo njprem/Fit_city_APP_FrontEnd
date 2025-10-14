@@ -1,13 +1,14 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { getToken, getUser } from "../services/auth/authService";
 
 export default function RequireAuth() {
   const token = getToken();
   const user = getUser();
+  const location = useLocation();
 
-  // If not logged in → send to login
+  // If not logged in → send to unauthorized gate
   if (!token || !user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/unauthorized" replace state={{ from: location }} />;
   }
 
   // Extract role (check both role_name and roles[0])
@@ -26,5 +27,5 @@ export default function RequireAuth() {
   }
 
   // Fallback for unknown roles
-  return <Navigate to="/login" replace />;
+  return <Navigate to="/unauthorized" replace state={{ from: location }} />;
 }
