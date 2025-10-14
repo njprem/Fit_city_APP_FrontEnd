@@ -21,6 +21,9 @@ export default function Navbar({ showSearch = true }: NavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // const rightClusterRef = useRef<HTMLDivElement | null>(null);
+  // const [rightWidth, setRightWidth] = useState(0);
+  // const [viewportWidth, setViewportWidth] = useState<number | null>(null);
 
   // Check login state
   useEffect(() => {
@@ -90,127 +93,151 @@ export default function Navbar({ showSearch = true }: NavbarProps) {
     }
   }, [location.pathname]);
 
+  {/*useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!rightClusterRef.current || typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setRightWidth(entry.contentRect.width);
+      }
+    });
+
+    observer.observe(rightClusterRef.current);
+    return () => observer.disconnect();
+  }, []);*/}
+
   const getActionClasses = (icon: "favorite" | "language" | "help") =>
     activeIcon === icon ? "text-[#000000]" : "text-[#016B71] hover:text-[#01585C]";
 
   const displayName = user?.firstName ?? user?.name ?? user?.email ?? "Profile";
+  {/*const balancedLeftWidth =
+    viewportWidth && viewportWidth >= 768 ? Math.min(rightWidth, viewportWidth / 2) : 0;
+  const leftSlotStyle: CSSProperties | undefined =
+    balancedLeftWidth > 0 ? { minWidth: `${balancedLeftWidth}px` } : undefined;*/}
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white">
       <nav className="w-full h-30" aria-label="Primary">
-        <div className="w-full grid [grid-template-columns:_auto_minmax(320px,1fr)_auto] items-center gap-6 sm:gap-8 lg:gap-12 px-4 sm:px-6 lg:px-10 py-5">
+        {/*</nav><div className="w-full grid [grid-template-columns:_auto_minmax(320px,1fr)_auto] items-center gap-6 sm:gap-8 lg:gap-12 px-4 sm:px-6 lg:px-10 py-5">*/}
+        <div className="w-full
+          grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-center
+          ggap-x-10 px-6 py-5">
           {/* Left: brand */}
-          <Link to="/" className="flex items-center justify-center gap-3 shrink-0">
-            <img src={Logo} alt="FitCity Logo" className="h-25 w-auto min-w-20" />
-          </Link>
+          <div className="flex items-center justify-self-start">
+            <Link to="/" className="flex items-center justify-center gap-3 shrink-0">
+              <img src={Logo} alt="FitCity Logo" className="h-25 w-auto min-w-20" />
+            </Link>
+          </div>
 
           {/* Center: Search */}
           {showSearch && (
-            <div className="flex justify-center">
+            <div className="w-full max-w-[880px] mx-4 md:mx-6">
               <SearchBar
                 onSearch={(q) => console.log("search:", q)}
-                className="w-full h-[64px] max-w-[780px] lg:max-w-[880px] xl:max-w-[980px] 2xl:max-w-[1100px]"
+                className="w-full"
               />
             </div>
           )}
 
           {/* Right: actions */}
-          <div className="flex justify-end items-center text-[#016B71] shrink-0">
-            <ul className="flex items-center gap-6 sm:gap-8 lg:gap-12 text-[#016B71] flex-nowrap">
-              <li>
-                <Link
-                  to="/favorite"
-                  onClick={() => setActiveIcon("favorite")}
-                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("favorite")}`}
+          <div className="flex items-center justify-end gap-8 sm:gap-10 text-[#016B71] justify-self-end">
+            
+              <Link
+                to="/favorite"
+                onClick={() => setActiveIcon("favorite")}
+                className={`inline-flex h-12 w-[5.5rem] flex-col items-center justify-center text-center leading-none transition-colors ${getActionClasses("favorite")}`}
                 >
-                  <span className="material-symbols-outlined text-2xl" aria-hidden>
-                    favorite
-                  </span>
-                  <span className="text-xs mt-1">Favourite</span>
-                </Link>
-              </li>
+                <span className="material-symbols-outlined text-2xl" aria-hidden>
+                  favorite
+                </span>
+                <span className="text-xs mt-1">Favourite</span>
+              </Link>
 
-              <li>
+              {/*<button
+                type="button"
+                onClick={() => setActiveIcon("language")}
+                className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("language")}`}
+              >
+                <span className="material-symbols-outlined text-2xl" aria-hidden>
+                  language
+                </span>
+                <span className="text-xs mt-1">EN/TH</span>
+              </button>*/}
+
+              <Link
+                to="/help"
+                onClick={() => setActiveIcon("help")}
+                className={`inline-flex h-12 w-[5.5rem] flex-col items-center leading-none transition-colors ${getActionClasses("help")}`}
+              >
+                <span className="material-symbols-outlined text-2xl" aria-hidden>
+                  help
+                </span>
+                <span className="text-xs mt-1">Help</span>
+              </Link>
+            
+
+            {user ? (
+              <div className="relative" ref={menuRef}>
                 <button
                   type="button"
-                  onClick={() => setActiveIcon("language")}
-                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("language")}`}
+                  onClick={handleProfileClick}
+                  className="inline-flex h-12 w-[5.5rem] flex-col items-center leading-none text-[#016B71] hover:text-[#01585C] focus:outline-none"
+                  aria-haspopup="menu"
+                  aria-expanded={isMenuOpen}
                 >
                   <span className="material-symbols-outlined text-2xl" aria-hidden>
-                    language
+                    account_circle
                   </span>
-                  <span className="text-xs mt-1">EN/TH</span>
+                  <span className="text-xs mt-1 truncate max-w-[6rem]" title={displayName}>
+                    {displayName}
+                  </span>
                 </button>
-              </li>
 
-              <li>
-                <Link
-                  to="/help"
-                  onClick={() => setActiveIcon("help")}
-                  className={`flex flex-col items-center leading-none transition-colors ${getActionClasses("help")}`}
-                >
-                  <span className="material-symbols-outlined text-2xl" aria-hidden>
-                    help
-                  </span>
-                  <span className="text-xs mt-1">Help</span>
-                </Link>
-              </li>
-
-              {user ? (
-                <li>
-                  <div className="relative" ref={menuRef}>
+                {isMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 mt-3 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-xl z-50"
+                  >
                     <button
                       type="button"
-                      onClick={handleProfileClick}
-                      className="flex flex-col items-center leading-none text-[#016B71] hover:text-[#01585C] focus:outline-none"
-                      aria-haspopup="menu"
-                      aria-expanded={isMenuOpen}
+                      role="menuitem"
+                      onClick={handleEditProfile}
+                      className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
                     >
-                      <span className="material-symbols-outlined text-2xl" aria-hidden>
-                        account_circle
-                      </span>
-                      <span className="text-xs mt-1 truncate max-w-[6rem]" title={displayName}>
-                        {displayName}
-                      </span>
+                      Edit Profile
                     </button>
-
-                    {isMenuOpen && (
-                      <div
-                        role="menu"
-                        className="absolute right-0 mt-3 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-xl z-50"
-                      >
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={handleEditProfile}
-                          className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
-                        >
-                          Edit Profile
-                        </button>
-                        <div className="my-1 h-px bg-slate-100" />
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={handleLogout}
-                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                        >
-                          Log Out
-                        </button>
-                      </div>
-                    )}
+                    <div className="my-1 h-px bg-slate-100" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleLogout}
+                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                    >
+                      Log Out
+                    </button>
                   </div>
-                </li>
-              ) : (
-                <li>
-                  <Link
-                    to="/login"
-                    className="rounded-full bg-[#016B71] px-5 py-2 font-bold text-white shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:bg-[#01585C] active:translate-y-[1px]"
-                  >
-                    Log In
-                  </Link>
-                </li>
-              )}
-            </ul>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="rounded-full bg-[#016B71] px-5 py-2 font-bold text-white shadow-[0_6px_0_rgba(0,0,0,.18)] transition hover:bg-[#01585C] active:translate-y-[1px]"
+              >
+                Log In
+              </Link>
+            )}
           </div>
         </div>
       </nav>
