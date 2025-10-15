@@ -32,8 +32,8 @@ export default function SearchBar({
       className={[
         // container (pill)
         "flex items-center gap-3 rounded-full border border-black/5",
-        "bg-amber-50 px-4 py-3 shadow-[0_2px_0_rgba(0,0,0,.08)]",
-        "w-full h-[64px]",
+        "bg-amber-50 shadow-[0_2px_0_rgba(0,0,0,.08)]",
+        "w-full h-12 md:h-14 px-4 md:px-5",
         className,
       ].join(" ")}
     >
@@ -71,7 +71,7 @@ export default function SearchBar({
         className={[
           "min-w-[96px] rounded-full border-1 border-[#d8f9f9]",
           "bg-[#016B71] px-4 py-2 font-bold text-white",
-          "shadow-[0_6px_0_rgba(0,0,0,.18)]",
+          "shadow-[0_4px_0_rgba(0,0,0,.18)]",
           "transition hover:bg-teal-800 active:translate-y-[1px]",
           "disabled:opacity-60 disabled:cursor-not-allowed",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400",

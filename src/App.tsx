@@ -9,6 +9,7 @@ import ForgotPassword from "./pages/Traveler/LandingPage/ForgotPassword";
 import FavoritePage from "./pages/Traveler/Favorite/FavoritePage";
 import HelpPage from "./pages/Traveler/Help/HelpPage";
 import RequireAuth from "./components/RequireAuth";
+import UnauthorizedPage from "./pages/Traveler/LandingPage/UnauthorizedPage";
 
 export default function App() {
   return (
@@ -20,10 +21,11 @@ export default function App() {
           <Route path="/signup" element={<SignUpPage />} />
           <Route path="/terms" element={<TermandCondition />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/favorite" element={<FavoritePage />} />
           <Route path="/help" element={<HelpPage />} />
+          <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route element={<RequireAuth />}>
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/favorite" element={<FavoritePage />} />
             {/* <Route path="/admin/dashboard" element={<AdminDashboard />} /> */}
           </Route>
         </Routes>
