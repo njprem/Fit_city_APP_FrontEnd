@@ -32,3 +32,6 @@ dist
 # misc
 .env
 .DS_Store
+log.html
+report.html
+output.xml
