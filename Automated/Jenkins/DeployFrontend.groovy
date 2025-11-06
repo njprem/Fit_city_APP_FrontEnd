@@ -10,6 +10,7 @@ pipeline {
         CONTAINER_NAME = 'fitcity-frontend'
         GOOGLE_CLIENT_ID = $CLIENT_ID
         VITE_API_URL='https://fit-city.kaminjitt.com'
+        INTERNAL_ADDRESS_API=''
     }
 
     stages {
@@ -32,7 +33,7 @@ pipeline {
               docker build \
                 --build-arg VITE_API_URL=$VITE_API_URL \
                 --build-arg VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
-                --build-arg NGINX_PROXY_PASS=$VITE_API_URL \
+                --build-arg NGINX_PROXY_PASS=$INTERNAL_ADDRESS_API \
                 -t $IMAGE_NAME .
             """
           }
