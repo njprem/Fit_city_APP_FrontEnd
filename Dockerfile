@@ -15,7 +15,10 @@ RUN npm run build
 
 # Production stage
 FROM nginx:alpine
+ARG NGINX_PROXY_PASS=http://127.0.0.1:8181
+ENV NGINX_PROXY_PASS=$NGINX_PROXY_PASS
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+RUN sed -i "s|__PROXY_PASS__|${NGINX_PROXY_PASS}|g" /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

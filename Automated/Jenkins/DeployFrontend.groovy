@@ -32,6 +32,7 @@ pipeline {
               docker build \
                 --build-arg VITE_API_URL=$VITE_API_URL \
                 --build-arg VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
+                --build-arg NGINX_PROXY_PASS=$VITE_API_URL \
                 -t $IMAGE_NAME .
             """
           }
