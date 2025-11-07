@@ -6,6 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+selenium-screenshot*
 
 node_modules
 dist
@@ -32,3 +33,6 @@ dist
 # misc
 .env
 .DS_Store
+log.html
+report.html
+output.xml
