@@ -4,7 +4,12 @@ import { useId, useState, useEffect, useRef } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchDestinations } from "../services/auth/destinationService";
-import type { Destination } from "../types/destination";
+import type {
+  Destination,
+  CategoryFilter,
+  SortOption,
+} from "../types/destination";
+import { getSearchHistory, addToSearchHistory } from "../utils/searchHistory";
 
 type Props = {
   placeholder?: string;
@@ -14,31 +19,46 @@ type Props = {
   loading?: boolean;
 };
 
+const CATEGORIES: CategoryFilter[] = ["Culture", "Food", "Nature", "Sport"];
+
 export default function SearchBar({
   placeholder = "Find your places to go",
   defaultValue = "",
   onSearch,
   className = "",
-  loading = false,
 }: Props) {
   const [q, setQ] = useState(defaultValue);
   const [results, setResults] = useState<Destination[]>([]);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // 🆕 Single filter (category or popularity)
+  const [selectedFilter, setSelectedFilter] = useState<string>("");
 
   const inputId = useId();
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  // Debounce search with client-side filtering
+  // Load search history on mount
+  useEffect(() => {
+    setSearchHistory(getSearchHistory());
+  }, []);
+
+  // Debounced search
   useEffect(() => {
     const trimmedQuery = q.trim();
 
     if (trimmedQuery.length < 2) {
       setResults([]);
-      setShowDropdown(false);
+      if (isFocused && searchHistory.length > 0) {
+        setShowDropdown(true);
+      } else {
+        setShowDropdown(false);
+      }
       return;
     }
 
@@ -48,35 +68,45 @@ export default function SearchBar({
     const timeoutId = setTimeout(async () => {
       try {
         console.log("[SearchBar] Searching for:", trimmedQuery);
-        const response = await searchDestinations(trimmedQuery, 20); // Get more results
-        console.log(
-          "[SearchBar] Raw results from API:",
-          response.destinations.length
-        );
 
-        // Client-side filtering: match beginning of words only
+        // Determine if filter is a category or popularity
+        const isPopularity = selectedFilter === "popularity";
+        const sort: SortOption = isPopularity ? "rating_desc" : "rating_desc";
+        const categories: CategoryFilter[] =
+          !isPopularity && selectedFilter
+            ? [selectedFilter as CategoryFilter]
+            : [];
+
+        const response = await searchDestinations(trimmedQuery, 20, {
+          sort,
+          categories: categories.length ? categories : undefined,
+        });
+
+        console.log("[SearchBar] Raw results:", response.destinations.length);
+
         const queryLower = trimmedQuery.toLowerCase();
-
-        // Helper function to check if query matches start of any word in text
         const matchesWordStart = (text: string): boolean => {
           if (!text) return false;
-          const words = text.toLowerCase().split(/[\s-_]+/); // Split by space, dash, underscore
+          const words = text.toLowerCase().split(/[\s-_]+/);
           return words.some((word) => word.startsWith(queryLower));
         };
 
         const filtered = response.destinations
           .filter((dest) => {
             return (
-              matchesWordStart(dest.name || "") ||
-              matchesWordStart(dest.city || "") ||
-              matchesWordStart(dest.country || "")
+              (!categories.length ||
+                categories.includes(dest.category as CategoryFilter)) &&
+              (matchesWordStart(dest.name || "") ||
+                matchesWordStart(dest.city || "") ||
+                matchesWordStart(dest.country || "") ||
+                matchesWordStart(dest.category || "") ||
+                matchesWordStart(dest.description || ""))
             );
           })
-          .slice(0, 5); // Limit to 5 results
+          .slice(0, 5);
 
-        console.log("[SearchBar] Filtered results:", filtered.length);
         setResults(filtered);
-        setShowDropdown(filtered.length > 0);
+        setShowDropdown(true);
       } catch (err) {
         console.error("[SearchBar] Search error:", err);
         const errorMessage =
@@ -90,7 +120,7 @@ export default function SearchBar({
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [q]);
+  }, [q, isFocused, searchHistory.length, selectedFilter]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -102,6 +132,7 @@ export default function SearchBar({
         !inputRef.current.contains(event.target as Node)
       ) {
         setShowDropdown(false);
+        setIsFocused(false);
       }
     }
 
@@ -114,19 +145,49 @@ export default function SearchBar({
     const trimmed = q.trim();
 
     if (results.length > 0) {
-      // Navigate to first result
+      addToSearchHistory(trimmed);
       navigate(`/destination/${results[0].slug}`);
       setShowDropdown(false);
+      setQ("");
     } else if (trimmed) {
+      addToSearchHistory(trimmed);
+      navigate(`/search?q=${encodeURIComponent(trimmed)}`);
+      setShowDropdown(false);
       onSearch?.(trimmed);
     }
   }
 
   function handleResultClick(destination: Destination) {
+    addToSearchHistory(q.trim());
     navigate(`/destination/${destination.slug}`);
     setShowDropdown(false);
     setQ("");
   }
+
+  function handleHistoryClick(historyQuery: string) {
+    setQ(historyQuery);
+    inputRef.current?.focus();
+  }
+
+  function handleFocus() {
+    setIsFocused(true);
+    if (q.trim().length < 2 && searchHistory.length > 0) {
+      setShowDropdown(true);
+    } else if (results.length > 0) {
+      setShowDropdown(true);
+    }
+  }
+
+  const showHistory =
+    showDropdown && q.trim().length < 2 && searchHistory.length > 0;
+  const showResults =
+    showDropdown && results.length > 0 && q.trim().length >= 2;
+  const showNoResults =
+    showDropdown &&
+    results.length === 0 &&
+    q.trim().length >= 2 &&
+    !isSearching &&
+    !error;
 
   return (
     <div className="relative w-full">
@@ -157,9 +218,7 @@ export default function SearchBar({
           id={inputId}
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          onFocus={() => {
-            if (results.length > 0) setShowDropdown(true);
-          }}
+          onFocus={handleFocus}
           placeholder={placeholder}
           aria-label={placeholder}
           aria-autocomplete="list"
@@ -172,65 +231,131 @@ export default function SearchBar({
           ].join(" ")}
         />
 
-        <button
-          type="submit"
-          disabled={loading || isSearching}
-          className={[
-            "min-w-[96px] rounded-full border-1 border-[#d8f9f9]",
-            "bg-[#016B71] px-4 py-2 font-bold text-white",
-            "shadow-[0_4px_0_rgba(0,0,0,.18)]",
-            "transition hover:bg-teal-800 active:translate-y-[1px]",
-            "disabled:opacity-60 disabled:cursor-not-allowed",
-            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400",
-          ].join(" ")}
+        {/* 🆕 Single Blue Filter Select */}
+        <select
+          value={selectedFilter}
+          onChange={(e) => setSelectedFilter(e.target.value)}
+          className="rounded-xl bg-gradient-to-r from-[#019a9f] to-[#016B71] px-6 py-2 text-base font-semibold text-white shadow-lg
+             ring-1 ring-[#1ad1d6] focus:ring-2 focus:ring-[#01e0eb] hover:bg-[#018386] transition-all duration-300
+             outline-none cursor-pointer backdrop-blur-sm"
         >
-          {loading || isSearching ? "Searching…" : "Search"}
-        </button>
+          <option value="">Filter</option>
+          {CATEGORIES.map((cat) => (
+            <option key={cat} value={cat}>
+              {cat}
+            </option>
+          ))}
+          <option value="popularity">Popularity (Highest Rated)</option>
+        </select>
       </form>
 
       {/* Dropdown Results */}
-      {showDropdown && (
+      {(showHistory || showResults || showNoResults) && (
         <div
           ref={dropdownRef}
           id={`${inputId}-results`}
           role="listbox"
           className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden z-50 max-h-96 overflow-y-auto"
         >
-          {results.map((destination) => (
-            <button
-              key={destination.id}
-              type="button"
-              role="option"
-              onClick={() => handleResultClick(destination)}
-              className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0 flex items-start gap-3"
-            >
-              {destination.hero_image_url && (
-                <img
-                  src={destination.hero_image_url}
-                  alt=""
-                  className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
-                />
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-slate-800 truncate">
-                  {destination.name}
-                </div>
-                <div className="text-sm text-slate-600 flex items-center gap-2 mt-1">
-                  <span className="material-symbols-outlined text-base">
-                    location_on
-                  </span>
-                  <span className="truncate">
-                    {destination.city}, {destination.country}
-                  </span>
-                </div>
-                <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium">
-                    {destination.category}
-                  </span>
-                </div>
+          {/* History */}
+          {showHistory && (
+            <div className="p-2">
+              <div className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">
+                Recent Searches
               </div>
-            </button>
-          ))}
+              {searchHistory.map((historyQuery, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => handleHistoryClick(historyQuery)}
+                  className="w-full px-4 py-2 text-left hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-3"
+                >
+                  <span className="material-symbols-outlined text-slate-400 text-lg">
+                    history
+                  </span>
+                  <span className="text-slate-700">{historyQuery}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Results */}
+          {showResults &&
+            results.map((destination) => (
+              <button
+                key={destination.id}
+                type="button"
+                role="option"
+                onClick={() => handleResultClick(destination)}
+                className="w-full px-5 py-3 text-left hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-b-0 flex items-start gap-3"
+              >
+                {destination.hero_image_url && (
+                  <img
+                    src={destination.hero_image_url}
+                    alt=""
+                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                  />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-slate-800 truncate">
+                    {destination.name}
+                  </div>
+                  <div className="text-sm text-slate-600 flex items-center gap-2 mt-1">
+                    <span className="material-symbols-outlined text-base">
+                      location_on
+                    </span>
+                    <span className="truncate">
+                      {destination.city && destination.country
+                        ? `${destination.city}, ${destination.country}`
+                        : destination.city ||
+                          destination.country ||
+                          "Location not specified"}
+                    </span>
+                  </div>
+                  {destination.contact && (
+                    <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                      <span className="material-symbols-outlined text-sm">
+                        phone
+                      </span>
+                      <span>{destination.contact}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 mt-1">
+                    {destination.category && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 font-medium text-xs">
+                        {destination.category}
+                      </span>
+                    )}
+                    {destination.average_rating !== undefined && (
+                      <div className="flex items-center gap-1 text-xs text-amber-600">
+                        <span className="material-symbols-outlined text-sm">
+                          star
+                        </span>
+                        <span className="font-semibold">
+                          {destination.average_rating.toFixed(1)}
+                        </span>
+                        {destination.total_reviews !== undefined && (
+                          <span className="text-slate-500">
+                            ({destination.total_reviews})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+
+          {/* No Results */}
+          {showNoResults && (
+            <div className="px-5 py-8 text-center text-slate-600">
+              <span className="material-symbols-outlined text-4xl text-slate-400 mb-2">
+                search_off
+              </span>
+              <p className="font-medium">No destinations found</p>
+              <p className="text-sm mt-1">Please try different keywords</p>
+            </div>
+          )}
         </div>
       )}
 

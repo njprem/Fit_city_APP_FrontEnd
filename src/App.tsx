@@ -9,6 +9,7 @@ import ForgotPassword from "./pages/Traveler/LandingPage/ForgotPassword";
 import FavoritePage from "./pages/Traveler/Favorite/FavoritePage";
 import HelpPage from "./pages/Traveler/Help/HelpPage";
 import DestinationDetailPage from "./pages/Traveler/Destination/DestinationDetailPage";
+import SearchResultsPage from "./pages/Traveler/Search/SearchResultsPage";
 import RequireAuth from "./components/RequireAuth";
 import UnauthorizedPage from "./pages/Traveler/LandingPage/UnauthorizedPage";
 
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/destination/:id" element={<DestinationDetailPage />} />
           <Route element={<RequireAuth />}>
             <Route path="/profile" element={<ProfilePage />} />
