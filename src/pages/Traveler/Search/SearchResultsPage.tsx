@@ -11,6 +11,7 @@ import type {
   SortOption,
   SearchFilters,
 } from "../../../types/destination";
+import { Star, StarHalf } from "lucide-react";
 
 const CATEGORIES: CategoryFilter[] = ["Culture", "Food", "Nature", "Sport"];
 
@@ -249,34 +250,39 @@ export default function SearchResultsPage() {
 
                     {/* Rating & Category */}
                     <div className="flex items-center justify-between">
-                      {destination.average_rating !== undefined ? (
+                      {typeof destination.average_rating === "number" ? (
                         <div className="flex items-center gap-1">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <span
-                              key={star}
-                              className={[
-                                "material-symbols-outlined text-lg",
-                                star <= Math.round(destination.average_rating!)
-                                  ? "text-amber-400"
-                                  : "text-slate-300",
-                              ].join(" ")}
-                            >
-                              star
-                            </span>
-                          ))}
+                          {(() => {
+                            const r = destination.average_rating as number;
+                            const full = Math.floor(r);
+                            const half = r - full >= 0.5 ? 1 : 0;
+                            const empty = 5 - full - half;
+                            return (
+                              <>
+                                {Array.from({ length: full }).map((_, i) => (
+                                  <Star key={`f-${i}`} className="h-4 w-4 text-yellow-500" strokeWidth={2} fill="currentColor" aria-hidden />
+                                ))}
+                                {half === 1 && (
+                                  <span key="half" className="relative inline-block h-4 w-4" aria-hidden>
+                                    <Star className="absolute inset-0 h-4 w-4 text-yellow-500" strokeWidth={2} />
+                                    <StarHalf className="absolute inset-0 h-4 w-4 text-yellow-500" strokeWidth={2} fill="currentColor" />
+                                  </span>
+                                )}
+                                {Array.from({ length: empty }).map((_, i) => (
+                                  <Star key={`e-${i}`} className="h-4 w-4 text-yellow-500" strokeWidth={2} aria-hidden />
+                                ))}
+                              </>
+                            );
+                          })()}
                           <span className="ml-1 text-sm font-semibold text-slate-700">
                             {destination.average_rating.toFixed(1)}
                           </span>
-                          {destination.total_reviews !== undefined && (
-                            <span className="text-sm text-slate-500">
-                              ({destination.total_reviews})
-                            </span>
+                          {typeof destination.total_reviews === "number" && (
+                            <span className="text-sm text-slate-500">({destination.total_reviews})</span>
                           )}
                         </div>
                       ) : (
-                        <div className="text-sm text-slate-500">
-                          No ratings yet
-                        </div>
+                        <div className="text-sm text-slate-500">No ratings yet</div>
                       )}
 
                       {destination.category && (

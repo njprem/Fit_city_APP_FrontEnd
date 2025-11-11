@@ -38,25 +38,21 @@ type UIReview = {
 function RatingStars({ rating }: { rating: number }) {
   const full = Math.floor(rating);
   const half = rating - full >= 0.5 ? 1 : 0;
-  // const empty = 5 - full - half;
+  const empty = 5 - full - half;
   return (
     <div className="flex items-center gap-1" aria-label={`Rating ${rating}/5`}>
       {Array.from({ length: full }).map((_, i) => (
-        <Star
-          key={`f-${i}`}
-          className="h-4 w-4 text-yellow-500"
-          fill="currentColor"
-          aria-hidden
-        />
+        <Star key={`f-${i}`} className="h-4 w-4 text-yellow-500" strokeWidth={2} fill="currentColor" aria-hidden />
       ))}
       {half === 1 && (
-        <StarHalf
-          key="half"
-          className="h-4 w-4 text-yellow-500"
-          fill="currentColor"
-          aria-hidden
-        />
+        <span key="half" className="relative inline-block h-4 w-4" aria-hidden>
+          <Star className="absolute inset-0 h-4 w-4 text-yellow-500" strokeWidth={2} />
+          <StarHalf className="absolute inset-0 h-4 w-4 text-yellow-500" strokeWidth={2} fill="currentColor" />
+        </span>
       )}
+      {Array.from({ length: empty }).map((_, i) => (
+        <Star key={`e-${i}`} className="h-4 w-4 text-yellow-500" strokeWidth={2} aria-hidden />
+      ))}
     </div>
   );
 }
