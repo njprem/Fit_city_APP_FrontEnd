@@ -1,6 +1,4 @@
 // src/App.tsx
-import React from "react";
-
 const adminData = {
   totalAccounts: 5000,
   activeAccounts: 238,
