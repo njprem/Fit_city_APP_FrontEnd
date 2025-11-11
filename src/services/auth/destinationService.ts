@@ -69,7 +69,8 @@ export async function searchDestinations(
 }
 
 export async function getDestination(
-  id: string
+  id: string,
+  signal?: AbortSignal
 ): Promise<DestinationResponse> {
   const url = `${API_BASE_URL}/api/v1/destinations/${id}`;
   console.log("[DEBUG] Getting destination:", url);
@@ -80,6 +81,7 @@ export async function getDestination(
       headers: {
         "Content-Type": "application/json",
       },
+      signal,
     });
 
     console.log("[DEBUG] Response status:", response.status);

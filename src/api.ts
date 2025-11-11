@@ -7,6 +7,7 @@ import {
   type AuthSession,
   type AuthUser,
 } from "./services/auth/authService";
+import type { Destination } from "./types/destination";
 
 const handleUnauthorized = () => {
   logout();
@@ -156,6 +157,34 @@ export async function confirmPasswordReset(email: string, otp: string, newPasswo
     const msg = await res.text();
     throw new Error(parseErrorMessage(msg) || "Unable to reset password");
   }
+}
+
+export async function getDestinationById(id: string): Promise<any> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/destinations/${id}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || "Unable to fetch destination details");
+  }
+
+  return await res.json();
+}
+
+export async function getDestinationReviewById(id: string): Promise<any> {
+  const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/destinations/${id}/reviews`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const msg = await res.text();
+    throw new Error(msg || "Unable to fetch destination reviews");
+  }
+
+  return await res.json();
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {

@@ -72,8 +72,9 @@ export default function SearchResultsPage() {
     );
   };
 
-  const handleDestinationClick = (slug: string) => {
-    navigate(`/destination/${slug}`);
+  const handleDestinationClick = (id?: string) => {
+    if (!id) return;
+    navigate(`/destination/${id}`);
   };
 
   return (
@@ -201,7 +202,7 @@ export default function SearchResultsPage() {
               {destinations.map((destination) => (
                 <button
                   key={destination.id}
-                  onClick={() => handleDestinationClick(destination.slug)}
+                  onClick={() => handleDestinationClick(destination.id)}
                   className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden text-left"
                 >
                   {/* Thumbnail */}
