@@ -6,6 +6,7 @@ import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import { getDestinationById, getDestinationReviewById } from "../../../api";
 import { Star, StarHalf, MapPin, Phone, Clock, Heart } from "lucide-react";
+import { addFavorite, removeFavoriteByDestinationId, loadFavorites } from "../../../services/favoritesService";
 
 type UIDestination = {
   id?: string;
@@ -231,6 +232,14 @@ export default function DestinationDetailPage() {
     };
   }, [id]);
 
+  // Initialize favorite toggle based on current favorites storage
+  useEffect(() => {
+    if (!destination?.id) return;
+    const list = loadFavorites();
+    const isFav = list.some((x) => x.destination_id === destination.id);
+    setFavorite(isFav);
+  }, [destination?.id]);
+
   function scrollTo(ref: React.RefObject<HTMLDivElement>) {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -359,7 +368,31 @@ export default function DestinationDetailPage() {
             </div>
             <button
               type="button"
-              onClick={() => setFavorite((f) => !f)}
+              onClick={async () => {
+                if (!destination?.id) return;
+                const next = !favorite;
+                setFavorite(next);
+                if (next) {
+                  await addFavorite({
+                    id: `local:${destination.id}`,
+                    destination_id: destination.id,
+                    destination: {
+                      name: destination.name,
+                      city: destination.city ?? undefined,
+                      country: destination.country ?? undefined,
+                      category: destination.category ?? undefined,
+                      hero_image_url: destination.hero_image_url ?? undefined,
+                      slug: undefined,
+                      contact: destination.contact ?? undefined,
+                      // Use computed average and count from this page
+                      rating: ratingValue ?? destination.rating ?? undefined,
+                      review_count: reviewCount ?? destination.review_count ?? undefined,
+                    },
+                  });
+                } else {
+                  await removeFavoriteByDestinationId(destination.id);
+                }
+              }}
               className="p-2 transition-colors"
               aria-label="Add to favorites"
               aria-pressed={favorite}
