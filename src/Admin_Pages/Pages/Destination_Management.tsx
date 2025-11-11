@@ -2,9 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import type {ChangeEvent, FormEvent} from 'react';
 import { Plus, MoreVertical, Eye, Edit, Trash2, ChevronDown, Check, X, Search, Filter, ArrowDownWideNarrow, SlidersHorizontal, Camera } from 'lucide-react'; 
 
-// ***************************************************************
-// 1. SearchBar Component
-// ***************************************************************
+
 export interface SearchBarProps {
     searchTerm: string;
     setSearchTerm: (term: string) => void;
@@ -29,7 +27,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, onSear
                 onKeyDown={handleKeyPress}
                 className="w-full pl-4 pr-12 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 shadow-sm transition-shadow"
             />
-            <button
+            <button type='button'
                 onClick={onSearch}
                 className="absolute right-0 top-0 h-full w-10 text-gray-500 flex items-center justify-center hover:text-indigo-600 transition-colors"
             >

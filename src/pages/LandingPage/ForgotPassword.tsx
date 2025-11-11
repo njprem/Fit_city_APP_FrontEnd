@@ -1,9 +1,9 @@
 // src/pages/Auth/ForgotPasswordOnePage.tsx
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import Navbar from "../../../components/navbar";
-import Footer from "../../../components/footer";
-import { confirmPasswordReset, requestPasswordReset } from "../../../api";
+import Navbar from "../../components/navbar";
+import Footer from "../../components/footer";
+import { confirmPasswordReset, requestPasswordReset } from "../../api";
 
 export default function ForgotPasswordOnePage() {
   // form states
