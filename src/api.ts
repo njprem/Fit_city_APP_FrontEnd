@@ -7,7 +7,7 @@ import {
   type AuthSession,
   type AuthUser,
 } from "./services/auth/authService";
-import type { Destination } from "./types/destination";
+// import type { Destination } from "./types/destination";
 
 const handleUnauthorized = () => {
   logout();

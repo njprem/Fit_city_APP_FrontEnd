@@ -37,7 +37,7 @@ type UIReview = {
 function RatingStars({ rating }: { rating: number }) {
   const full = Math.floor(rating);
   const half = rating - full >= 0.5 ? 1 : 0;
-  const empty = 5 - full - half;
+  // const empty = 5 - full - half;
   return (
     <div className="flex items-center gap-1" aria-label={`Rating ${rating}/5`}>
       {Array.from({ length: full }).map((_, i) => (
