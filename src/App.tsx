@@ -1,4 +1,5 @@
 import "./App.css";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { LandingPage } from './pages/Traveler/LandingPage/LandingPage';
 import ProfilePage from "./pages/Traveler/LandingPage/Profile_Page";
@@ -10,6 +11,8 @@ import FavoritePage from "./pages/Traveler/Favorite/FavoritePage";
 import HelpPage from "./pages/Traveler/Help/HelpPage";
 import RequireAuth from "./components/RequireAuth";
 import UnauthorizedPage from "./pages/Traveler/LandingPage/UnauthorizedPage";
+import Destination_Management from "./Admin_Pages/Pages/Destination_Management";
+import Sidebar from "./Admin_Pages/Admin_Component/Sidebar";
 
 export default function App() {
   // 🛠️ ตั้งค่าเริ่มต้นเป็น 'destinations' เพื่อให้เห็นหน้า Destination Management ทันที
@@ -22,7 +25,7 @@ export default function App() {
 
   const renderContent = () => {
     if (activePage === 'destinations') {
-      return <DestinationManagement />;
+      return <Destination_Management />;
     }
     // เพิ่มหน้าอื่น ๆ ที่นี่ในอนาคต
     return (

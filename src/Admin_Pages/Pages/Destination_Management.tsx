@@ -1,4 +1,5 @@
-import React, { useState, useMemo, ChangeEvent, FormEvent, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import type {ChangeEvent, FormEvent} from 'react';
 import { Plus, MoreVertical, Eye, Edit, Trash2, ChevronDown, Check, X, Search, Filter, ArrowDownWideNarrow, SlidersHorizontal, Camera } from 'lucide-react'; 
 
 // ***************************************************************
@@ -309,8 +310,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ initialImages, onImagesCh
     );
 };
 // #endregion ImageUploader Component
-
-// ... (omitted the rest of the file)
 
 // #region DestinationForm Component
 export interface DestinationFormData {

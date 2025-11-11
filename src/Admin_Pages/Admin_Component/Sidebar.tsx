@@ -3,6 +3,15 @@ import { LayoutDashboard, MapPin, BookOpen, Database, User, LogOut } from "lucid
 // ✅ Path ถูกต้องตามโครงสร้าง: src/Admin_Pages/Admin_Component/ -> src/assets/
 import LogoImage from "../../assets/Logo_fitcity.png"; 
 
+// [เพิ่ม] Interface สำหรับ Props ของ Sidebar
+interface SidebarProps {
+    activeKey?: string;
+    adminName?: string;
+    adminEmail?: string;
+    onMenuClick?: (key: string) => void; // Assuming key is a string
+    onSignOut?: () => void;
+}
+
 const menuItems = [
   { name: "Dashboard", icon: LayoutDashboard, key: "dashboard" }, 
   { name: "Destination Management", icon: MapPin, key: "destinations" }, 
@@ -14,18 +23,18 @@ const menuItems = [
 const sidebarBgColor = "bg-[#006064]"; 
 const activePillColor = "bg-[#FFFFDE]";
 // ✅ ใช้ font-sans ที่ดูสะอาดตาตามรูปภาพ
-const fontClass = "font-sans"; 
+const fontClass = "font-sans";
 
-const Sidebar = ({ 
+const Sidebar: React.FC<SidebarProps> = ({ // [แก้ไข] กำหนด Type ให้ Props
     activeKey = "dashboard", 
     adminName = "Seren Vale", 
     adminEmail = "Seren.Vale@gmail.com", 
     onMenuClick, 
     onSignOut 
 }) => {
-  
+
   return (
-    <aside className={`w-72 flex flex-col h-screen ${sidebarBgColor} text-white shadow-xl ${fontClass} flex-shrink-0`}>
+    <aside className={`w-72 flex flex-col h-screen ${sidebarBgColor} text-white shadow-xl ${fontClass} shrink-0`}>
       
       {/* 1. Logo / Brand Section */}
       <div className="flex flex-col items-start px-6 py-6 pb-4">
@@ -55,7 +64,7 @@ const Sidebar = ({
                   }
                 `}
               >
-                <Icon size={24} className="flex-shrink-0" />
+                <Icon size={24} className="shrink-0" />
                 <span className="text-base whitespace-nowrap text-left">{item.name}</span>
               </button>
             </div>
@@ -67,7 +76,7 @@ const Sidebar = ({
       <div className="p-4">
         <div className="flex items-center space-x-3 p-3 bg-white text-black rounded-xl shadow-lg">
           
-          <div className="w-10 h-10 flex items-center justify-center text-sm font-bold flex-shrink-0">
+          <div className="w-10 h-10 flex items-center justify-center text-sm font-bold shrink-0">
             <User size={24} className="text-gray-600" /> 
           </div>
           
