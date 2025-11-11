@@ -146,7 +146,10 @@ export default function SearchBar({
 
     if (results.length > 0) {
       addToSearchHistory(trimmed);
-      navigate(`/destination/${results[0].slug}`);
+      const id = results[0].id;
+      if (id) {
+        navigate(`/destination/${id}`);
+      }
       setShowDropdown(false);
       setQ("");
     } else if (trimmed) {
@@ -159,7 +162,9 @@ export default function SearchBar({
 
   function handleResultClick(destination: Destination) {
     addToSearchHistory(q.trim());
-    navigate(`/destination/${destination.slug}`);
+    if (destination.id) {
+      navigate(`/destination/${destination.id}`);
+    }
     setShowDropdown(false);
     setQ("");
   }
@@ -235,9 +240,16 @@ export default function SearchBar({
         <select
           value={selectedFilter}
           onChange={(e) => setSelectedFilter(e.target.value)}
-          className="rounded-xl bg-gradient-to-r from-[#019a9f] to-[#016B71] px-6 py-2 text-base font-semibold text-white shadow-lg
-             ring-1 ring-[#1ad1d6] focus:ring-2 focus:ring-[#01e0eb] hover:bg-[#018386] transition-all duration-300
-             outline-none cursor-pointer backdrop-blur-sm"
+          className={[
+            "rounded-xl bg-gradient-to-r from-[#019a9f] to-[#016B71] text-white font-semibold shadow-lg",
+            "ring-1 ring-[#1ad1d6] focus:ring-2 focus:ring-[#01e0eb] hover:bg-[#018386]",
+            "outline-none cursor-pointer backdrop-blur-sm transition-all duration-300",
+            // responsive sizing
+            "px-3 py-1.5 text-xs",
+            "sm:px-4 sm:py-2 sm:text-sm",
+            "md:px-5 md:text-sm",
+            "lg:px-6 lg:text-base",
+          ].join(" ")}
         >
           <option value="">Filter</option>
           {CATEGORIES.map((cat) => (
@@ -245,7 +257,7 @@ export default function SearchBar({
               {cat}
             </option>
           ))}
-          <option value="popularity">Popularity (Highest Rated)</option>
+          <option value="popularity">Popularity</option>
         </select>
       </form>
 

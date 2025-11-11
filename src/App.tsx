@@ -12,6 +12,8 @@ import DestinationDetailPage from "./pages/Traveler/Destination/DestinationDetai
 import SearchResultsPage from "./pages/Traveler/Search/SearchResultsPage";
 import RequireAuth from "./components/RequireAuth";
 import UnauthorizedPage from "./pages/Traveler/LandingPage/UnauthorizedPage";
+import DestinationSlugRedirect from "./pages/Traveler/Destination/DestinationSlugRedirect";
+
 
 export default function App() {
   return (
@@ -27,6 +29,7 @@ export default function App() {
           <Route path="/unauthorized" element={<UnauthorizedPage />} />
           <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/destination/:id" element={<DestinationDetailPage />} />
+          <Route path="/destination/slug/:slug" element={<DestinationSlugRedirect />} />
           <Route element={<RequireAuth />}>
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/favorite" element={<FavoritePage />} />
