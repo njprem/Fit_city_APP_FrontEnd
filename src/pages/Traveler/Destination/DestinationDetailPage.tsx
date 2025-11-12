@@ -644,8 +644,12 @@ export default function DestinationDetailPage() {
 
           {/* Gallery (ซ้ายใหญ่ + ขวา 2 รูปซ้อน) */}
           {gallery.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              <div className="md:col-span-2">
+            <div
+              className={`grid grid-cols-1 ${
+                gallery.length > 1 ? "md:grid-cols-3" : "md:grid-cols-1"
+              } gap-4 mb-8`}
+            >
+              <div className={gallery.length > 1 ? "md:col-span-2" : "md:col-span-3"}>
                 <img
                   src={gallery[0]?.url}
                   alt={gallery[0]?.caption ?? "gallery"}
@@ -657,32 +661,29 @@ export default function DestinationDetailPage() {
                   }}
                 />
               </div>
-              <div className="grid grid-rows-2 gap-4">
-                {gallery[1] && (
-                  <img
-                    src={gallery[1]?.url}
-                    alt={gallery[1]?.caption ?? "gallery"}
-                    className="w-full h-[128px] md:h-[140px] object-cover rounded-xl cursor-zoom-in"
-                    loading="lazy"
-                    onClick={() => {
-                      setLightboxIndex(1);
-                      setIsLightboxOpen(true);
-                    }}
-                  />
-                )}
-                {gallery[2] && (
-                  <img
-                    src={gallery[2]?.url}
-                    alt={gallery[2]?.caption ?? "gallery"}
-                    className="w-full h-[128px] md:h-[140px] object-cover rounded-xl cursor-zoom-in"
-                    loading="lazy"
-                    onClick={() => {
-                      setLightboxIndex(2);
-                      setIsLightboxOpen(true);
-                    }}
-                  />
-                )}
-              </div>
+              {gallery.length > 1 && (
+                <div
+                  className={`grid gap-4 ${
+                    gallery.length > 2 ? "grid-rows-2" : "grid-rows-1"
+                  }`}
+                >
+                  {gallery.slice(1, 3).map((image, idx) => (
+                    <img
+                      key={image?.url ?? idx}
+                      src={image?.url}
+                      alt={image?.caption ?? "gallery"}
+                      className={`w-full ${
+                        gallery.length === 2 ? "h-[260px] md:h-[300px]" : "h-[128px] md:h-[140px]"
+                      } object-cover rounded-xl cursor-zoom-in`}
+                      loading="lazy"
+                      onClick={() => {
+                        setLightboxIndex(idx + 1);
+                        setIsLightboxOpen(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
