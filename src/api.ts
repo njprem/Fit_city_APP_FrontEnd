@@ -322,6 +322,8 @@ export interface DestinationChangeQuery {
   offset?: number;
 }
 
+const destinationChangesBaseUrl = `${API_BASE_URL}/api/v1/admin/destination-changes`;
+
 export async function fetchDestinationChanges(
   query: DestinationChangeQuery = {}
 ): Promise<DestinationChangesResponse> {
@@ -333,7 +335,7 @@ export async function fetchDestinationChanges(
   if (typeof query.offset === "number") params.set("offset", String(query.offset));
 
   const queryString = params.toString();
-  const url = `${API_BASE_URL}/api/v1/admin/destination-changes${queryString ? `?${queryString}` : ""}`;
+  const url = `${destinationChangesBaseUrl}${queryString ? `?${queryString}` : ""}`;
 
   const response = await fetchWithAuth(url, { method: "GET" });
   return (await response.json()) as DestinationChangesResponse;
@@ -364,6 +366,20 @@ export async function rejectDestinationChange(changeId: string, message: string)
   );
 
   return (await response.json()) as ApproveDestinationChangeResponse;
+}
+
+export interface DestinationChangeDetailResponse {
+  change_request: DestinationChange;
+  destination?: Record<string, unknown>;
+}
+
+export async function fetchDestinationChange(changeId: string): Promise<DestinationChangeDetailResponse> {
+  const response = await fetchWithAuth(
+    `${destinationChangesBaseUrl}/${changeId}`,
+    { method: "GET" }
+  );
+
+  return (await response.json()) as DestinationChangeDetailResponse;
 }
 
 export const api = {

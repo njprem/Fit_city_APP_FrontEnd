@@ -1,17 +1,20 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { Plus, ChevronDown, ArrowDownWideNarrow, SlidersHorizontal } from 'lucide-react'; 
 
 import SearchBar from '../Admin_Component/SearchBar';
 import Dropdown from '../Admin_Component/Dropdown';
 import ConfirmPopup from '../Admin_Component/Confirm_Popup';
-import DestinationForm, { emptyDestinationInitialData, mockEditDestinationData, mockViewDestinationData, type DestinationFormData } from '../Admin_Component/Destination_Form';
+import DestinationForm, { emptyDestinationInitialData, mockViewDestinationData, type DestinationFormData } from '../Admin_Component/Destination_Form';
 import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
 import ActionMenu from '../Admin_Component/ActionMenu';
+import { fetchDestinationChanges, fetchDestinationChange, type DestinationChange } from '../../api';
 
 
 // #region Mock Data & Logic
 export interface Destination {
     id: number;
+    changeId?: string;
+    destinationCode?: string;
     status: StatusType;
     name: string;
     type: string;
@@ -37,6 +40,58 @@ export const draftDestinationData: Destination[] = [
     { id: 105, status: 'Add', name: 'Swiss Alps: Beginner Ski Lesson', type: 'Sport', createdBy: 'S223460', adminName: 'Lena Müller' },
 ];
 
+const mapChangeRequestToFormData = (change: DestinationChange, fallback?: Destination): DestinationFormData => {
+    const fields = (change.fields ?? {}) as Record<string, unknown>;
+
+    const getField = (key: string): unknown => fields[key];
+
+    const getString = (value: unknown, defaultValue = ''): string => {
+        if (typeof value === 'string') return value;
+        if (typeof value === 'number') return String(value);
+        return defaultValue;
+    };
+
+    const getNumber = (value: unknown): number | null => {
+        if (typeof value === 'number') return value;
+        if (typeof value === 'string') {
+            const parsed = parseFloat(value);
+            return Number.isNaN(parsed) ? null : parsed;
+        }
+        return null;
+    };
+
+    const galleryRaw = getField('gallery');
+    const gallery = Array.isArray(galleryRaw) ? galleryRaw : [];
+    const galleryUrls = gallery
+        .map(image => {
+            if (image && typeof image === 'object' && 'url' in image) {
+                const url = (image as { url?: string }).url;
+                return typeof url === 'string' ? url : null;
+            }
+            return null;
+        })
+        .filter((url): url is string => Boolean(url));
+
+    const heroImage = getString(getField('hero_image_url'));
+    const images = galleryUrls.length > 0 ? galleryUrls : (heroImage ? [heroImage] : []);
+
+    return {
+        id: fallback?.id ?? null,
+        name: getString(getField('name'), fallback?.name ?? ''),
+        type: getString(getField('category'), fallback?.type ?? ''),
+        contact: getString(getField('contact'), ''),
+        country: getString(getField('country'), ''),
+        city: getString(getField('city'), ''),
+        latitude: getNumber(getField('latitude')),
+        longitude: getNumber(getField('longitude')),
+        openingTime: getString(getField('opening_time'), '09:00'),
+        closingTime: getString(getField('closing_time'), '17:00'),
+        description: getString(getField('description'), ''),
+        images,
+        imageFiles: [],
+    };
+};
+
 // ** Updated Type Options **
 export const typeOptions = [
     { value: 'Culture', label: 'Culture' },
@@ -60,7 +115,8 @@ const processDestinations = (data: Destination[], searchTerm: string, sortBy: st
     if (searchTerm) {
         result = result.filter(dest =>
             dest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            dest.id.toString().includes(searchTerm)
+            dest.id.toString().includes(searchTerm) ||
+            dest.destinationCode?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }
 
@@ -98,6 +154,10 @@ const DestinationManagement: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'published' | 'draft'>('published');
     const [publishedList, setPublishedList] = useState<Destination[]>(destinationData);
     const [draftList, setDraftList] = useState<Destination[]>(draftDestinationData);
+    const [isDraftLoading, setIsDraftLoading] = useState(false);
+    const [draftError, setDraftError] = useState<string | null>(null);
+    const [isPublishedLoading, setIsPublishedLoading] = useState(false);
+    const [publishedError, setPublishedError] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'view'>('list'); 
     const [formDataForForm, setFormDataForForm] = useState<DestinationFormData | null>(null); // Data passed to DestinationForm
     const [isConfirmVisible, setIsConfirmVisible] = useState(false);
@@ -105,6 +165,7 @@ const DestinationManagement: React.FC = () => {
     const [isSortOpen, setIsSortOpen] = useState(false); 
     const [isFilterOpen, setIsFilterOpen] = useState(false); 
     const [isOpenActionMenuId, setIsOpenActionMenuId] = useState<number | null>(null); // <<-- [แก้ไขที่ 14] State สำหรับ Action Menu
+    const [isFormLoading, setIsFormLoading] = useState(false);
 
     const sortRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 15] Ref สำหรับ Sort
     const filterRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 16] Ref สำหรับ Filter
@@ -175,76 +236,191 @@ const DestinationManagement: React.FC = () => {
         setIsOpenActionMenuId(null);
     };
 
+    const loadPublishedDestinations = useCallback(async () => {
+        setIsPublishedLoading(true);
+        setPublishedError(null);
+        try {
+            const response = await fetchDestinationChanges({
+                status: 'approved',
+                limit: 100,
+                offset: 0,
+            });
+
+            const mapped: Destination[] = response.changes.map((change, index) => ({
+                id: index + 1,
+                changeId: change.id,
+                destinationCode: change.destination_id ?? `N/A-${index + 1}`,
+                status: 'Active',
+                name: (change.fields?.name as string) ?? 'Untitled destination',
+                type: (change.fields?.category as string) ?? 'Unknown',
+                createdBy: change.submitted_by ?? 'Unknown',
+                adminName: change.reviewed_by ?? 'Unknown',
+            }));
+
+            setPublishedList(mapped);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to load approved destinations.';
+            setPublishedError(message);
+        } finally {
+            setIsPublishedLoading(false);
+        }
+    }, []);
+
+    const loadDraftDestinations = useCallback(async () => {
+        setIsDraftLoading(true);
+        setDraftError(null);
+        try {
+            const response = await fetchDestinationChanges({
+                status: 'draft',
+                limit: 100,
+                offset: 0,
+            });
+
+            const mapped: Destination[] = response.changes.map((change, index) => {
+                const action = change.action?.toLowerCase();
+                let status: StatusType = 'Add';
+                if (action === 'delete') status = 'Delete';
+                else if (action === 'update' || action === 'edit') status = 'Edit';
+
+                return {
+                    id: index + 1,
+                    changeId: change.id,
+                    destinationCode: change.destination_id ?? `N/A-${index + 1}`,
+                    status,
+                    name: (change.fields?.name as string) ?? 'Untitled destination',
+                    type: (change.fields?.category as string) ?? 'Unknown',
+                    createdBy: change.submitted_by ?? 'Unknown',
+                    adminName: change.reviewed_by ?? 'Pending review',
+                };
+            });
+
+            setDraftList(mapped);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : 'Unable to load draft destinations.';
+            setDraftError(message);
+        } finally {
+            setIsDraftLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (activeTab === 'published') {
+            void loadPublishedDestinations();
+        } else {
+            void loadDraftDestinations();
+        }
+    }, [activeTab, loadPublishedDestinations, loadDraftDestinations]);
+
     const dataSource = activeTab === 'published' ? publishedList : draftList;
 
     const filteredAndSortedData = useMemo(() => {
         return processDestinations(dataSource, searchTerm, sortBy, filterType, filterStatus);
     }, [dataSource, searchTerm, sortBy, filterType, filterStatus, activeTab]);
 
+    const isCurrentTabLoading = activeTab === 'published' ? isPublishedLoading : isDraftLoading;
+    const activeTabError = activeTab === 'published' ? publishedError : draftError;
 
-    const handleViewDetail = (id: number) => {
-        // Find in both Published and Draft datasets (state)
-        const existingData = [...publishedList, ...draftList].find(d => d.id === id);
-        if (existingData) {
-            // For view mode, we need full data. Using mock for now.
-            setFormDataForForm({
-                ...mockViewDestinationData, // Use a comprehensive mock for view
-                id: existingData.id,
-                name: existingData.name,
-                type: existingData.type,
-                // Assume other fields are filled by a backend lookup
-            });
-            setIsOpenActionMenuId(null);
-            setIsSortOpen(false);
-            setIsFilterOpen(false);
-            setViewMode('view');
-        } else {
-            console.error(`Destination with ID ${id} not found for view.`);
+    const buildFallbackFormData = (destination: Destination, mode: 'view' | 'edit'): DestinationFormData => {
+        if (mode === 'view') {
+            return {
+                ...mockViewDestinationData,
+                id: destination.id,
+                name: destination.name,
+                type: destination.type,
+            };
         }
+
+        return {
+            ...emptyDestinationInitialData,
+            id: destination.id,
+            name: destination.name,
+            description: 'Description for mock edit.',
+            contact: '0812345678',
+            country: 'Thailand',
+            city: 'Bangkok',
+            latitude: 13.75,
+            longitude: 100.5,
+            openingTime: '08:00',
+            closingTime: '17:00',
+            type: destination.type || 'Sightseeing',
+            images: ['https://via.placeholder.com/150/FF5733/FFFFFF?text=MockEdit'],
+        };
     };
 
-    const handleEditDetail = (id: number) => {
-        // Use mockEditDestinationData if ID matches, otherwise create generic mock from available record in state
-        const existingData = [...publishedList, ...draftList].find(d => d.id === id);
-        if (id === 1) {
-            setFormDataForForm(mockEditDestinationData);
-        } else if (existingData) {
-            setFormDataForForm({
-                ...emptyDestinationInitialData,
-                id: existingData.id,
-                name: existingData.name,
-                description: 'Description for mock edit.',
-                contact: '0812345678',
-                country: 'Thailand',
-                city: 'Bangkok',
-                latitude: 13.75,
-                longitude: 100.5,
-                openingTime: '08:00',
-                closingTime: '17:00',
-                type: existingData.type || 'Sightseeing',
-                images: ['https://via.placeholder.com/150/FF5733/FFFFFF?text=MockEdit'],
-            });
-        } else {
-            setFormDataForForm({
-                ...emptyDestinationInitialData,
-                id: id,
-                name: `Destination ID: ${id} (Mock Edit Data)`,
-                description: 'Description for mock edit.',
-                contact: '0812345678',
-                country: 'Thailand',
-                city: 'Bangkok',
-                latitude: 13.75,
-                longitude: 100.5,
-                openingTime: '08:00',
-                closingTime: '17:00',
-                type: 'Sightseeing',
-                images: ['https://via.placeholder.com/150/FF5733/FFFFFF?text=MockEdit'],
-            });
-        }
+    const openDestinationForm = (destination: Destination, mode: 'view' | 'edit', data?: DestinationFormData) => {
+        const formPayload = data ?? buildFallbackFormData(destination, mode);
+        setFormDataForForm(formPayload);
+        setViewMode(mode);
+    };
+
+    const handleViewDetail = async (destination: Destination) => {
         setIsOpenActionMenuId(null);
         setIsSortOpen(false);
         setIsFilterOpen(false);
-        setViewMode('edit');
+
+        if (!destination.changeId) {
+            openDestinationForm(destination, 'view');
+            return;
+        }
+
+        try {
+            setIsFormLoading(true);
+            const detail = await fetchDestinationChange(destination.changeId);
+            const formData = mapChangeRequestToFormData(detail.change_request, destination);
+            openDestinationForm(destination, 'view', formData);
+        } catch (error) {
+            console.error('Unable to load destination detail', error);
+            openDestinationForm(destination, 'view');
+            const message = error instanceof Error ? error.message : 'Unable to load destination detail.';
+            setConfirmAction({
+                title: 'Unable to load destination',
+                message,
+                confirmText: 'OK',
+                confirmButtonClass: 'bg-rose-600 hover:bg-rose-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+        } finally {
+            setIsFormLoading(false);
+        }
+    };
+
+    const handleEditDetail = async (destination: Destination) => {
+        setIsOpenActionMenuId(null);
+        setIsSortOpen(false);
+        setIsFilterOpen(false);
+
+        if (!destination.changeId) {
+            openDestinationForm(destination, 'edit');
+            return;
+        }
+
+        try {
+            setIsFormLoading(true);
+            const detail = await fetchDestinationChange(destination.changeId);
+            const formData = mapChangeRequestToFormData(detail.change_request, destination);
+            openDestinationForm(destination, 'edit', formData);
+        } catch (error) {
+            console.error('Unable to load destination detail', error);
+            openDestinationForm(destination, 'edit');
+            const message = error instanceof Error ? error.message : 'Unable to load destination detail.';
+            setConfirmAction({
+                title: 'Unable to load destination',
+                message,
+                confirmText: 'OK',
+                confirmButtonClass: 'bg-rose-600 hover:bg-rose-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+        } finally {
+            setIsFormLoading(false);
+        }
     };
 
     const handleDeleteDestination = (id: number) => {
@@ -344,8 +520,9 @@ const DestinationManagement: React.FC = () => {
     }
     
     // Render list view
-   if (viewMode === 'list') {
+    if (viewMode === 'list') {
         return (
+            <>
             <div className="p-8">
                 <h1 className="text-3xl font-bold text-gray-900 mb-6">Destination Management</h1>
                 <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
@@ -470,6 +647,18 @@ const DestinationManagement: React.FC = () => {
                     </button>
                 </div>
 
+                {activeTabError && (
+                    <div className="mt-4 px-4 py-3 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-between">
+                        <span>{activeTabError}</span>
+                        <button
+                            onClick={() => void (activeTab === 'published' ? loadPublishedDestinations() : loadDraftDestinations())}
+                            className="px-3 py-1 rounded-md border border-rose-200 text-rose-700 hover:bg-rose-100 text-sm"
+                        >
+                            Retry
+                        </button>
+                    </div>
+                )}
+
                 {/* Table */}
                 <div className="bg-white rounded-xl shadow-lg overflow-visible mt-2">
                     <table className="min-w-full table-fixed divide-y divide-gray-200">
@@ -494,13 +683,21 @@ const DestinationManagement: React.FC = () => {
                             </tr>
                         </thead>
                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredAndSortedData.length > 0 ? (
+                            {isCurrentTabLoading ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500 text-lg">
+                                        Loading destinations...
+                                    </td>
+                                </tr>
+                            ) : filteredAndSortedData.length > 0 ? (
                                 filteredAndSortedData.map((destination) => (
                                     <tr key={destination.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <StatusPill status={destination.status} />
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{destination.id}</td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {destination.destinationCode ?? destination.id}
+                                            </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{destination.name}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{destination.type}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{destination.createdBy}</td>
@@ -508,10 +705,10 @@ const DestinationManagement: React.FC = () => {
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <ActionMenu
                                                 options={activeTab === 'published' ? [
-                                                    { value: 'view', label: 'View Detail', action: () => handleViewDetail(destination.id) },
-                                                    { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination.id) },
+                                                    { value: 'view', label: 'View Detail', action: () => handleViewDetail(destination) },
+                                                    { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination) },
                                                 ] : [
-                                                    { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination.id) },
+                                                    { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination) },
                                                     { value: 'pending', label: 'Pending Review', action: () => {
                                                         setConfirmAction({
                                                             title: 'Submit for Review',
@@ -544,21 +741,45 @@ const DestinationManagement: React.FC = () => {
                     </table>
                 </div>
             </div>
+            <ConfirmPopup
+                isVisible={isConfirmVisible}
+                title={confirmAction?.title || 'Confirm'}
+                message={confirmAction?.message || 'Are you sure?'}
+                onConfirm={() => {
+                    if (confirmAction?.confirmText === 'OK') {
+                        handleConfirmClose();
+                    } else if (confirmAction?.handler) {
+                        confirmAction.handler();
+                    }
+                }}
+                onCancel={handleConfirmClose} 
+                confirmText={confirmAction?.confirmText}
+                cancelText={confirmAction?.cancelText}
+                confirmButtonClass={confirmAction?.confirmButtonClass}
+            />
+            </>
         );
     }
-    
-    // Render form view
+
     const initialFormState = formDataForForm || emptyDestinationInitialData;
 
     return (
         <>
-            <DestinationForm
-                initialData={initialFormState}
-                viewMode={viewMode as 'add' | 'edit' | 'view'}
-                onSave={handleSaveForm}
-                onCancel={handleCancelForm}
-                onDelete={handleFormDelete} 
-            />
+            <div className="p-4 md:p-8">
+                {isFormLoading && (
+                    <div className="mb-4 inline-flex items-center gap-2 text-xs font-medium text-indigo-700 bg-indigo-50 px-3 py-1 rounded-full shadow">
+                        <div className="h-3 w-3 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                        Updating from server...
+                    </div>
+                )}
+                <DestinationForm
+                    initialData={initialFormState}
+                    viewMode={viewMode as 'add' | 'edit' | 'view'}
+                    onSave={handleSaveForm}
+                    onCancel={handleCancelForm}
+                    onDelete={handleFormDelete}
+                />
+            </div>
             <ConfirmPopup
                 isVisible={isConfirmVisible}
                 title={confirmAction?.title || 'Confirm'}
