@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.github
+Dockerfile
+Dockerfile.*
+.env
+*.log
+Automated
+selenium-screenshot-*.png
