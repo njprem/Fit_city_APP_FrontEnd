@@ -27,10 +27,16 @@ const Dropdown: React.FC<DropdownProps> = ({ name, value, options, onChange, pla
                 className={`block w-full px-4 py-2 rounded-lg focus:outline-none focus:ring-teal-500 focus:border-teal-500 appearance-none text-sm transition-colors
                     ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-50 text-gray-700 border border-transparent hover:border-gray-300'}`}
             >
+                {/* Placeholder Option */}
+                {/* 💡 แก้ไข: ถ้า value เป็นค่าว่าง ('') ให้ placeholder ถูกเลือกเป็นค่าเริ่มต้น 
+                  และตั้ง disabled เป็น true เพื่อไม่ให้ผู้ใช้เลือกซ้ำ แต่ถ้ามี value แล้ว ให้ disabled เป็น false 
+                */}
                 <option value="" disabled={!value}>
                     {placeholder}
                 </option>
-                {options.map((option) => (
+                
+                {/* 🚀 FIX: ป้องกัน Error: ใช้ Array.isArray และตรวจสอบ options ก่อนเรียก .map() */}
+                {Array.isArray(options) && options.map((option) => (
                     <option key={option.value} value={option.value}>
                         {option.label}
                     </option>

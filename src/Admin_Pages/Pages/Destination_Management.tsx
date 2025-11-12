@@ -9,12 +9,6 @@ import StatusPill from '../Admin_Component/StatusPill';
 import ActionMenu from '../Admin_Component/ActionMenu';
 
 
-
-
-
-
-
-
 // #region Mock Data & Logic
 export interface Destination {
     id: number;
