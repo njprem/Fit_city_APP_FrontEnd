@@ -1,12 +1,38 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import type { Location } from "react-router-dom";
-import Navbar from "../../../components/navbar";
-import Footer from "../../../components/footer";
-import Hero from "../../../assets/mainbg.jpg";
-import { getToken } from "../../../services/auth/authService";
-import { login } from "../../../api";
-import GoogleSignInButton from "../../../components/GoogleSignInButton";
+import Navbar from "../../components/navbar";
+import Footer from "../../components/footer";
+import Hero from "../../assets/mainbg.jpg";
+import { getToken, getUser, type AuthUser } from "../../services/auth/authService";
+import { login } from "../../api";
+import GoogleSignInButton from "../../components/GoogleSignInButton";
+
+const ADMIN_ROUTE = "/admin";
+
+const isAdminRole = (role?: string | null) =>
+  typeof role === "string" && role.trim().toLowerCase() === "admin";
+
+const userHasAdminRole = (user?: AuthUser | null) => {
+  if (!user) {
+    return false;
+  }
+
+  if (isAdminRole(user.role_name) || isAdminRole(user.role)) {
+    return true;
+  }
+
+  if (Array.isArray(user.roles)) {
+    return user.roles.some(
+      (role) => isAdminRole(role.role_name) || (typeof role.role === "string" && isAdminRole(role.role))
+    );
+  }
+
+  return false;
+};
+
+const resolvePostLoginDestination = (user: AuthUser | null | undefined, fallback: string) =>
+  userHasAdminRole(user) ? ADMIN_ROUTE : fallback;
 
 export default function LogInPage() {
   const [email, setEmail] = useState("");
@@ -27,9 +53,10 @@ export default function LogInPage() {
     setLoading(true);
 
     try {
-      await login(email, pwd);
+      const session = await login(email, pwd);
       console.log("Login successful!");
-      navigate(redirectPath, { replace: true });
+      const destination = resolvePostLoginDestination(session?.user, redirectPath);
+      navigate(destination, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -39,7 +66,9 @@ export default function LogInPage() {
 
   if (getToken()) {
     console.log("User already has token, redirecting to previous page");
-    return <Navigate to={redirectPath} replace />;
+    const existingUser = getUser();
+    const destination = resolvePostLoginDestination(existingUser, redirectPath);
+    return <Navigate to={destination} replace />;
   }
 
   return (
@@ -107,9 +136,13 @@ export default function LogInPage() {
 
                 <GoogleSignInButton
                   onStart={() => setError(null)}
-                  onSuccess={() => {
+                  onSuccess={(context) => {
                     setError(null);
-                    navigate(redirectPath, { replace: true });
+                    const destination = resolvePostLoginDestination(
+                      context?.user ?? context?.session?.user,
+                      redirectPath
+                    );
+                    navigate(destination, { replace: true });
                   }}
                   onError={(message) => setError(message)}
                 />

@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Navbar from "../../../components/navbar";
-import Footer from "../../../components/footer";
-import Hero from "../../../assets/mainbg.jpg";
-import { fetchCurrentUser, register } from "../../../api";
-import GoogleSignInButton from "../../../components/GoogleSignInButton";
+import Navbar from "../../components/navbar";
+import Footer from "../../components/footer";
+import Hero from "../../assets/mainbg.jpg";
+import { fetchCurrentUser, register } from "../../api";
+import GoogleSignInButton from "../../components/GoogleSignInButton";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
