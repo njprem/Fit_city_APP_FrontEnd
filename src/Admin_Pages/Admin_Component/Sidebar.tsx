@@ -43,6 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({ // [แก้ไข] กำหนด 
                 src={LogoImage} 
                 alt="FitCity Logo" 
                 className="w-30 h-20 opacity-80" 
+                
             /> 
         </div>
       </div>

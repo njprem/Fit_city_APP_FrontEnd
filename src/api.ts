@@ -288,6 +288,84 @@ export async function deleteUserAccount(userId: string): Promise<void> {
   });
 }
 
+export interface DestinationChangeFields {
+  name?: string;
+  category?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+export interface DestinationChange {
+  id: string;
+  action: string;
+  destination_id?: string;
+  submitted_by?: string;
+  reviewed_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  fields?: DestinationChangeFields;
+}
+
+export interface DestinationChangesResponse {
+  changes: DestinationChange[];
+  meta: {
+    count: number;
+    limit: number;
+    offset: number;
+  };
+}
+
+export interface DestinationChangeQuery {
+  status?: string;
+  destination_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function fetchDestinationChanges(
+  query: DestinationChangeQuery = {}
+): Promise<DestinationChangesResponse> {
+  const params = new URLSearchParams();
+
+  if (query.status) params.set("status", query.status);
+  if (query.destination_id) params.set("destination_id", query.destination_id);
+  if (typeof query.limit === "number") params.set("limit", String(query.limit));
+  if (typeof query.offset === "number") params.set("offset", String(query.offset));
+
+  const queryString = params.toString();
+  const url = `${API_BASE_URL}/api/v1/admin/destination-changes${queryString ? `?${queryString}` : ""}`;
+
+  const response = await fetchWithAuth(url, { method: "GET" });
+  return (await response.json()) as DestinationChangesResponse;
+}
+
+export interface ApproveDestinationChangeResponse {
+  change_request: DestinationChange;
+  destination?: Record<string, unknown>;
+  message?: string;
+}
+
+export async function approveDestinationChange(changeId: string): Promise<ApproveDestinationChangeResponse> {
+  const response = await fetchWithAuth(
+    `${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}/approve`,
+    { method: "POST" }
+  );
+
+  return (await response.json()) as ApproveDestinationChangeResponse;
+}
+
+export async function rejectDestinationChange(changeId: string, message: string): Promise<ApproveDestinationChangeResponse> {
+  const response = await fetchWithAuth(
+    `${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}/reject`,
+    {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }
+  );
+
+  return (await response.json()) as ApproveDestinationChangeResponse;
+}
+
 export const api = {
   get: (url: string) =>
     fetchWithAuth(`${API_BASE_URL}${url}`, { method: "GET" }).then((res) => res.json()),

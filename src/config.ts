@@ -1,6 +1,7 @@
 // src/config.ts
 
-const apiUrl = import.meta.env.VITE_API_URL;
+const rawApiUrl = import.meta.env.VITE_API_URL;
+const apiUrl = rawApiUrl?.replace(/\/+$/, "");
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 if (!apiUrl) {
