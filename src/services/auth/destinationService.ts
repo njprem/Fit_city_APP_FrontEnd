@@ -1,6 +1,7 @@
 // src/services/destinationService.ts
 
 import { API_BASE_URL } from "../../config";
+import { getToken, logout } from "./authService";
 import type { 
   DestinationsResponse, 
   DestinationResponse, 
@@ -133,4 +134,59 @@ export async function getDestinationReviews(
     console.error("[DEBUG] Get destination reviews error:", error);
     throw error;
   }
+}
+
+// Auth required: create a new review for a destination
+export interface CreateReviewRequest {
+  rating: number; // 1..5
+  title?: string;
+  content?: string; // optional per UI requirement
+  images?: (Blob | File)[]; // optional images
+}
+
+export interface CreateReviewResponse {
+  aggregate?: {
+    average_rating?: number;
+    rating_counts?: Record<string, number>;
+    total_reviews?: number;
+  };
+  review?: any;
+}
+
+export async function createDestinationReview(
+  id: string,
+  payload: CreateReviewRequest
+): Promise<CreateReviewResponse> {
+  const token = getToken();
+  if (!token) {
+    // Align behavior with other auth flows
+    logout();
+    throw new Error("Not authenticated");
+  }
+
+  const form = new FormData();
+  form.append("rating", String(payload.rating));
+  if (payload.title) form.append("title", payload.title);
+  if (payload.content) form.append("content", payload.content);
+  if (payload.images && payload.images.length > 0) {
+    for (const file of payload.images) {
+      form.append("images", file);
+    }
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/v1/destinations/${id}/reviews`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Intentionally omit Content-Type for FormData (browser sets boundary)
+    },
+    body: form,
+  });
+
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(txt || `Failed to create review (${res.status})`);
+  }
+
+  return (await res.json()) as CreateReviewResponse;
 }

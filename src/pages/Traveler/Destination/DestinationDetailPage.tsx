@@ -6,7 +6,8 @@ import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import { getDestination } from "../../../services/auth/destinationService";
 import { getDestinationReviews } from "../../../services/auth/destinationService";
-import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { createDestinationReview } from "../../../services/auth/destinationService";
+import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 import { addFavorite, removeFavoriteByDestinationId, loadFavorites } from "../../../services/favoritesService";
 import { getToken, getUser } from "../../../services/auth/authService";
 
@@ -33,8 +34,11 @@ type UIReview = {
   id?: string;
   author_name?: string;
   rating?: number; // 0..5 รองรับ .5
+  title?: string;
+  content?: string;
   comment?: string;
   posted_at?: string; // ISO หรือ human-readable
+  media?: Array<{ id?: string; url: string; ordering?: number }>;
 };
 
 function RatingStars({ rating }: { rating: number }) {
@@ -96,6 +100,13 @@ export default function DestinationDetailPage() {
   const [favorite, setFavorite] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number>(0);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState<number | null>(null);
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewContent, setReviewContent] = useState("");
+  const [reviewImages, setReviewImages] = useState<File[]>([]);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   // Keyboard controls for lightbox (ESC close, arrows navigate)
   useEffect(() => {
@@ -123,6 +134,17 @@ export default function DestinationDetailPage() {
       };
     }
   }, [isLightboxOpen]);
+
+  // Lock document scroll when review modal is open
+  useEffect(() => {
+    if (isReviewOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [isReviewOpen]);
 
   const descriptionRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
   const reviewsRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
@@ -237,10 +259,25 @@ export default function DestinationDetailPage() {
                 : typeof r?.stars === "number"
                 ? r.stars
                 : undefined,
-            comment: r?.comment ?? r?.body ?? r?.text ?? "",
+            title: r?.title ?? undefined,
+            content: r?.content ?? r?.comment ?? r?.body ?? r?.text ?? "",
+            // keep legacy 'comment' for backward compatibility with UI usage
+            comment: r?.comment ?? r?.body ?? r?.text ?? r?.content ?? "",
             posted_at: r?.posted_at ?? r?.created_at ?? r?.date,
+            media: Array.isArray(r?.media)
+              ? r.media
+                  .map((m: any, i: number) => ({
+                    id: m?.id,
+                    url: m?.url,
+                    ordering: m?.ordering ?? i,
+                  }))
+                  .filter((m: any) => !!m.url)
+                  .sort((a: any, b: any) => (a.ordering ?? 0) - (b.ordering ?? 0))
+              : [],
           }))
-          .filter((r: UIReview) => r.comment !== undefined);
+          .filter((r: UIReview) =>
+            r.title !== undefined || r.content !== undefined || r.comment !== undefined
+          );
 
         if (!isCancelled) {
           setDestination(adapted);
@@ -413,7 +450,31 @@ export default function DestinationDetailPage() {
                 Reviews
               </button>
             </div>
-            <button
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  const token = getToken();
+                  const user = getUser();
+                  if (!token || !user) {
+                    navigate("/unauthorized", { replace: false, state: { from: location } });
+                    return;
+                  }
+                  setReviewTitle("");
+                  setReviewContent("");
+                  setReviewRating(null);
+                  setReviewError(null);
+                  setReviewImages([]);
+                  setIsReviewOpen(true);
+                }}
+                className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#5d5d5d] hover:text-[#01585C]"
+                aria-label="Write a review"
+                title="Write a review"
+              >
+                <Pencil className="h-4 w-4" />
+                Write a review
+              </button>
+              <button
               type="button"
               onClick={async () => {
                 if (!destination?.id) return;
@@ -457,6 +518,7 @@ export default function DestinationDetailPage() {
                 strokeWidth={2}
               />
             </button>
+            </div>
           </div>
 
           {/* Description */}
@@ -517,10 +579,10 @@ export default function DestinationDetailPage() {
 
           {/* Reviews */}
           <section ref={reviewsRef} className="pt-10">
-            <h2 className="text-[18px] font-semibold text-slate-900 mb-4">Reviews</h2>
+            <h2 className="text-[16px] font-semibold text-slate-900 mb-4">Reviews</h2>
 
             {reviews.length === 0 ? (
-              <p className="text-slate-500 text-sm">No reviews yet.</p>
+              <p className="text-slate-500 text-sm">No reviews.</p>
             ) : (
               <div className="space-y-8">
                 {reviews.map((r, idx) => (
@@ -530,11 +592,38 @@ export default function DestinationDetailPage() {
                       {(r.author_name && r.author_name !== "Anonymous") ? r.author_name : "Anonymous"}
                       {r.posted_at ? ` - ${formatDateTimeLocal(r.posted_at)}` : ""}
                     </p>
-                    {r.comment && <p className="mt-3 text-slate-700 leading-7">{r.comment}</p>}
+                    {r.title && (
+                      <p className="mt-1 text-[14px] text-slate-900 font-semibold">{r.title}</p>
+                    )}
+                    {(r.content ?? r.comment) && (
+                      <p className="mt-1 text-slate-700 leading-7">{r.content ?? r.comment}</p>
+                    )}
+                    {Array.isArray(r.media) && r.media.length > 0 && (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {r.media.map((m, mi) => (
+                          <a
+                            key={m.id ?? mi}
+                            href={m.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block"
+                          >
+                            <img
+                              src={m.url}
+                              alt={r.title || `review media ${mi + 1}`}
+                              className="w-full h-24 object-cover rounded-lg"
+                              loading="lazy"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
+
+            {/* Review button */}
           </section>
         </div>
       </main>
@@ -586,6 +675,174 @@ export default function DestinationDetailPage() {
           >
             <X className="h-6 w-6" />
           </button>
+        </div>
+      )}
+      {isReviewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsReviewOpen(false)}
+        >
+          <div
+            className="relative max-w-xl w-full mx-4 rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-4">
+              <p className="text-center text-[16px] font-semibold text-slate-900">{destination.name}</p>
+              <p className="mt-2 text-slate-700 font-medium">
+                {(getUser()?.display_name as string) || (getUser()?.full_name as string) || (getUser()?.fullName as string) || (getUser()?.username as string) || (getUser()?.name as string) || ""}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 mb-4">
+              {Array.from({ length: 5 }).map((_, i) => {
+                const value = i + 1;
+                const active = (reviewRating ?? 0) >= value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-label={`Rate ${value}`}
+                    className="p-1"
+                    onClick={() => setReviewRating(value)}
+                  >
+                    <Star
+                      className={`h-6 w-6 ${active ? "text-yellow-500" : "text-slate-400"}`}
+                      strokeWidth={2}
+                      fill={active ? "currentColor" : "none"}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Title (optional)</label>
+                <input
+                  type="text"
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                  placeholder="Summary of your review"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Your review</label>
+                <textarea
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 h-28 resize-vertical focus:outline-none focus:ring-2 focus:ring-teal-600"
+                  placeholder="Share details of your experience"
+                />
+                {/* Content optional */}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Images (optional)</label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => setReviewImages(Array.from(e.target.files ?? []))}
+                  className="mt-1 block w-full text-sm text-slate-600 file:mr-4 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-slate-200"
+                />
+                {reviewImages.length > 0 && (
+                  <p className="mt-1 text-xs text-slate-500">Selected {reviewImages.length} image(s)</p>
+                )}
+              </div>
+              {reviewError && <p className="text-sm text-rose-600">{reviewError}</p>}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  className="px-4 py-2 rounded-lg text-slate-600 hover:bg-slate-100"
+                  onClick={() => setIsReviewOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="px-5 py-2 rounded-lg bg-[#016B71] text-white font-semibold disabled:opacity-50"
+                  disabled={reviewSubmitting || !reviewRating}
+                  onClick={async () => {
+                    if (!id) return;
+                    if (!reviewRating) {
+                      setReviewError("Please add rating.");
+                      return;
+                    }
+                    try {
+                      setReviewSubmitting(true);
+                      setReviewError(null);
+                      await createDestinationReview(id, {
+                        rating: reviewRating,
+                        title: reviewTitle.trim() || undefined,
+                        content: reviewContent.trim() || undefined,
+                        images: reviewImages,
+                      });
+                      // refresh reviews
+                      const rawReviews = await getDestinationReviews(id);
+                      const reviewItems = Array.isArray(rawReviews?.reviews)
+                        ? rawReviews.reviews
+                        : Array.isArray(rawReviews)
+                        ? rawReviews
+                        : [];
+                      const adaptedReviews: UIReview[] = reviewItems
+                        .map((r: any) => ({
+                          id: r?.id ?? r?.review_id,
+                          author_name:
+                            r?.reviewer?.display_name ??
+                            r?.display_name ??
+                            r?.author_name ??
+                            r?.user_name ??
+                            r?.author ??
+                            "Anonymous",
+                          rating:
+                            typeof r?.rating === "number"
+                              ? r.rating
+                              : typeof r?.stars === "number"
+                              ? r.stars
+                              : undefined,
+                          title: r?.title ?? undefined,
+                          content: r?.content ?? r?.comment ?? r?.body ?? r?.text ?? "",
+                          comment: r?.comment ?? r?.body ?? r?.text ?? r?.content ?? "",
+                          posted_at: r?.posted_at ?? r?.created_at ?? r?.date,
+                          media: Array.isArray(r?.media)
+                            ? r.media
+                                .map((m: any, i: number) => ({
+                                  id: m?.id,
+                                  url: m?.url,
+                                  ordering: m?.ordering ?? i,
+                                }))
+                                .filter((m: any) => !!m.url)
+                                .sort((a: any, b: any) => (a.ordering ?? 0) - (b.ordering ?? 0))
+                            : [],
+                        }))
+                        .filter((r: UIReview) =>
+                          r.title !== undefined || r.content !== undefined || r.comment !== undefined
+                        );
+                      setReviews(adaptedReviews);
+                      setIsReviewOpen(false);
+                    } catch (err: any) {
+                      setReviewError(err?.message || "Failed to submit review");
+                    } finally {
+                      setReviewSubmitting(false);
+                    }
+                  }}
+                >
+                  {reviewSubmitting ? "Submitting..." : "Post review"}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              aria-label="Close"
+              className="absolute top-3 right-3 p-2"
+              onClick={() => setIsReviewOpen(false)}
+            >
+              <X className="h-5 w-5 text-slate-500" />
+            </button>
+          </div>
         </div>
       )}
       <Footer />
