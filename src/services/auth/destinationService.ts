@@ -190,3 +190,48 @@ export async function createDestinationReview(
 
   return (await res.json()) as CreateReviewResponse;
 }
+
+export async function deleteDestinationReview(
+  destinationId: string,
+  reviewId?: string
+): Promise<void> {
+  const token = getToken();
+  if (!token) {
+    logout();
+    throw new Error("Not authenticated");
+  }
+
+  const candidateUrls = [
+    reviewId ? `${API_BASE_URL}/api/v1/destinations/${destinationId}/reviews/${reviewId}` : null,
+    reviewId ? `${API_BASE_URL}/api/v1/reviews/${reviewId}` : null,
+    `${API_BASE_URL}/api/v1/destinations/${destinationId}/reviews`,
+  ].filter(Boolean) as string[];
+
+  let lastError: Error | null = null;
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (res.ok) {
+        return;
+      }
+
+      const txt = await res.text();
+      const error = new Error(txt || `Failed to delete review (${res.status})`);
+      if (res.status === 404 || res.status === 405) {
+        lastError = error;
+        continue;
+      }
+      throw error;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastError ?? new Error("Failed to delete review");
+}

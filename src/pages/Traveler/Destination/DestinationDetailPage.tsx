@@ -4,12 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
-import { getDestination } from "../../../services/auth/destinationService";
-import { getDestinationReviews } from "../../../services/auth/destinationService";
-import { createDestinationReview } from "../../../services/auth/destinationService";
-import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import {
+  getDestination,
+  getDestinationReviews,
+  createDestinationReview,
+  deleteDestinationReview,
+} from "../../../services/auth/destinationService";
+import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { addFavorite, removeFavoriteByDestinationId, loadFavorites } from "../../../services/favoritesService";
 import { getToken, getUser } from "../../../services/auth/authService";
+import type { AuthUser } from "../../../services/auth/authService";
 
 type UIDestination = {
   id?: string;
@@ -30,16 +34,199 @@ type UIDestination = {
   address?: string | null;
 };
 
+type ReviewMedia = {
+  id?: string;
+  url: string;
+  ordering?: number;
+};
+
 type UIReview = {
   id?: string;
   author_name?: string;
+  author_username?: string;
+  author_id?: string;
+  author_email?: string;
   rating?: number; // 0..5 รองรับ .5
   title?: string;
   content?: string;
   comment?: string;
   posted_at?: string; // ISO หรือ human-readable
-  media?: Array<{ id?: string; url: string; ordering?: number }>;
+  media?: ReviewMedia[];
 };
+
+type UserMatchProfile = {
+  ids: Set<string>;
+  emails: Set<string>;
+  usernames: Set<string>;
+  fallbackNames: Set<string>;
+  allowNameFallback: boolean;
+};
+
+const USER_ID_KEYS = ["id", "user_id", "userId", "uuid", "sub", "profile_id"];
+const USER_EMAIL_KEYS = ["email", "user_email"];
+const USER_USERNAME_KEYS = ["username", "user_name", "userName", "preferred_username"];
+const USER_DISPLAY_NAME_KEYS = [
+  "display_name",
+  "displayName",
+  "full_name",
+  "fullName",
+  "name",
+];
+const USER_GIVEN_NAME_KEYS = ["firstName", "given_name"];
+const USER_FAMILY_NAME_KEYS = ["lastName", "family_name"];
+
+function optionalString(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "number") return String(value);
+  return undefined;
+}
+
+function normalizeValue(value: unknown): string | undefined {
+  const str = optionalString(value);
+  if (!str) return undefined;
+  return str.trim().toLowerCase();
+}
+
+function collectNormalizedValues(
+  record: Record<string, unknown>,
+  keys: string[]
+): string[] {
+  return keys
+    .map((key) => normalizeValue(record[key]))
+    .filter((value): value is string => Boolean(value));
+}
+
+function buildUserMatchProfile(user: AuthUser | null): UserMatchProfile | null {
+  if (!user) return null;
+  const record = (user as Record<string, unknown>) ?? {};
+  const ids = collectNormalizedValues(record, USER_ID_KEYS);
+  const emails = collectNormalizedValues(record, USER_EMAIL_KEYS);
+  const usernames = collectNormalizedValues(record, USER_USERNAME_KEYS);
+  const names = collectNormalizedValues(record, USER_DISPLAY_NAME_KEYS);
+
+  const firstName =
+    USER_GIVEN_NAME_KEYS.map((key) => normalizeValue(record[key])).find(Boolean) ??
+    undefined;
+  const lastName =
+    USER_FAMILY_NAME_KEYS.map((key) => normalizeValue(record[key])).find(Boolean) ??
+    undefined;
+  if (firstName && lastName) {
+    names.push(`${firstName} ${lastName}`.trim());
+  }
+  if (firstName) names.push(firstName);
+  if (lastName) names.push(lastName);
+
+  const allowNameFallback = ids.length === 0 && emails.length === 0 && usernames.length === 0;
+
+  if (!ids.length && !emails.length && !usernames.length && !names.length) return null;
+  return {
+    ids: new Set(ids),
+    emails: new Set(emails),
+    usernames: new Set(usernames),
+    fallbackNames: new Set(names),
+    allowNameFallback,
+  };
+}
+
+function reviewBelongsToUser(
+  review: UIReview,
+  profile: UserMatchProfile | null
+): boolean {
+  if (!profile) return false;
+  const reviewIds = [normalizeValue(review.author_id)];
+  if (reviewIds.some((id) => id && profile.ids.has(id))) {
+    return true;
+  }
+  const reviewEmails = [normalizeValue(review.author_email)];
+  if (reviewEmails.some((email) => email && profile.emails.has(email))) {
+    return true;
+  }
+  const reviewUsernames = [normalizeValue(review.author_username)];
+  if (reviewUsernames.some((username) => username && profile.usernames.has(username))) {
+    return true;
+  }
+  if (!profile.allowNameFallback) return false;
+  const reviewNames = [normalizeValue(review.author_name)];
+  return reviewNames.some((name) => name && profile.fallbackNames.has(name));
+}
+
+function findExistingReviewForUser(
+  reviews: UIReview[],
+  user: AuthUser | null
+): UIReview | undefined {
+  const profile = buildUserMatchProfile(user);
+  if (!profile) return undefined;
+  return reviews.find((review) => reviewBelongsToUser(review, profile));
+}
+
+function adaptReviewMedia(mediaList: any): ReviewMedia[] {
+  if (!Array.isArray(mediaList)) return [];
+  return mediaList
+    .map((m: any, i: number) => ({
+      id: m?.id,
+      url: m?.url ?? m?.image_url ?? m?.path ?? "",
+      ordering: m?.ordering ?? i,
+    }))
+    .filter((m: ReviewMedia) => Boolean(m.url))
+    .sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
+}
+
+function adaptReviewItems(raw: any): UIReview[] {
+  const reviewItems = Array.isArray(raw?.reviews)
+    ? raw.reviews
+    : Array.isArray(raw)
+    ? raw
+    : [];
+
+  return reviewItems
+    .map((r: any) => ({
+      id: r?.id ?? r?.review_id,
+      author_name:
+        r?.reviewer?.display_name ??
+        r?.reviewer?.full_name ??
+        r?.reviewer?.name ??
+        r?.reviewer?.username ??
+        r?.reviewer_name ??
+        r?.display_name ??
+        r?.author_name ??
+        r?.user_name ??
+        r?.author ??
+        "Anonymous",
+      author_username:
+        r?.reviewer?.username ??
+        r?.reviewer?.user_name ??
+        r?.author_username ??
+        r?.user_name ??
+        r?.username,
+      author_id:
+        optionalString(r?.reviewer?.id) ??
+        optionalString(r?.reviewer?.user_id) ??
+        optionalString(r?.user_id) ??
+        optionalString(r?.author_id) ??
+        optionalString(r?.reviewer_id),
+      author_email:
+        optionalString(r?.reviewer?.email) ??
+        optionalString(r?.reviewer?.user_email) ??
+        optionalString(r?.email) ??
+        optionalString(r?.author_email),
+      rating:
+        typeof r?.rating === "number"
+          ? r.rating
+          : typeof r?.stars === "number"
+          ? r.stars
+          : undefined,
+      title: r?.title ?? undefined,
+      content: r?.content ?? r?.comment ?? r?.body ?? r?.text ?? "",
+      // keep legacy 'comment' for backward compatibility with UI usage
+      comment: r?.comment ?? r?.body ?? r?.text ?? r?.content ?? "",
+      posted_at: r?.posted_at ?? r?.created_at ?? r?.date,
+      media: adaptReviewMedia(r?.media),
+    }))
+    .filter(
+      (r: UIReview) =>
+        r.title !== undefined || r.content !== undefined || r.comment !== undefined
+    );
+}
 
 function RatingStars({ rating }: { rating: number }) {
   const full = Math.floor(rating);
@@ -97,13 +284,19 @@ export default function DestinationDetailPage() {
   const [reviews, setReviews] = useState<UIReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(() => {
+    const token = getToken();
+    const user = getUser();
+    return token && user ? user : null;
+  });
   const [favorite, setFavorite] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number>(0);
   // Review media lightbox
   const [isReviewMediaOpen, setIsReviewMediaOpen] = useState(false);
   const [reviewMediaIndex, setReviewMediaIndex] = useState<number>(0);
-  const [reviewMediaList, setReviewMediaList] = useState<Array<{ id?: string; url: string }>>([]);
+  const [reviewMediaList, setReviewMediaList] = useState<ReviewMedia[]>([]);
+  const [existingReviewMedia, setExistingReviewMedia] = useState<ReviewMedia[]>([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [reviewRating, setReviewRating] = useState<number | null>(null);
   const [reviewTitle, setReviewTitle] = useState("");
@@ -111,6 +304,8 @@ export default function DestinationDetailPage() {
   const [reviewImages, setReviewImages] = useState<File[]>([]);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewDeleting, setReviewDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Keyboard controls for lightbox (ESC close, arrows navigate)
   useEffect(() => {
@@ -207,6 +402,32 @@ export default function DestinationDetailPage() {
     return undefined;
   }, [reviews, destination?.review_count]);
 
+  const userReview = useMemo(() => {
+    if (!authUser) return undefined;
+    return findExistingReviewForUser(reviews, authUser);
+  }, [reviews, authUser]);
+
+  useEffect(() => {
+    if (!userReview) {
+      setDeleteError(null);
+    }
+  }, [userReview]);
+
+  useEffect(() => {
+    const syncAuth = () => {
+      const token = getToken();
+      const user = getUser();
+      setAuthUser(token && user ? user : null);
+    };
+
+    window.addEventListener("storage", syncAuth);
+    window.addEventListener("authChanged", syncAuth);
+    return () => {
+      window.removeEventListener("storage", syncAuth);
+      window.removeEventListener("authChanged", syncAuth);
+    };
+  }, []);
+
   useEffect(() => {
     if (!id) {
       setError("No destination ID provided");
@@ -267,48 +488,7 @@ export default function DestinationDetailPage() {
 
         // --- ดึงรีวิว ---
         const rawReviews = await getDestinationReviews(safeId);
-        const reviewItems = Array.isArray(rawReviews?.reviews)
-          ? rawReviews.reviews
-          : Array.isArray(rawReviews)
-          ? rawReviews
-          : [];
-
-        // TODO: map ให้ตรงกับ Swagger ถ้าชื่อฟิลด์ต่าง
-        const adaptedReviews: UIReview[] = reviewItems
-          .map((r: any) => ({
-            id: r?.id ?? r?.review_id,
-            author_name:
-              r?.reviewer?.display_name ??
-              r?.display_name ??
-              r?.author_name ??
-              r?.user_name ??
-              r?.author ??
-              "Anonymous",
-            rating:
-              typeof r?.rating === "number"
-                ? r.rating
-                : typeof r?.stars === "number"
-                ? r.stars
-                : undefined,
-            title: r?.title ?? undefined,
-            content: r?.content ?? r?.comment ?? r?.body ?? r?.text ?? "",
-            // keep legacy 'comment' for backward compatibility with UI usage
-            comment: r?.comment ?? r?.body ?? r?.text ?? r?.content ?? "",
-            posted_at: r?.posted_at ?? r?.created_at ?? r?.date,
-            media: Array.isArray(r?.media)
-              ? r.media
-                  .map((m: any, i: number) => ({
-                    id: m?.id,
-                    url: m?.url,
-                    ordering: m?.ordering ?? i,
-                  }))
-                  .filter((m: any) => !!m.url)
-                  .sort((a: any, b: any) => (a.ordering ?? 0) - (b.ordering ?? 0))
-              : [],
-          }))
-          .filter((r: UIReview) =>
-            r.title !== undefined || r.content !== undefined || r.comment !== undefined
-          );
+        const adaptedReviews = adaptReviewItems(rawReviews);
 
         if (!isCancelled) {
           setDestination(adapted);
@@ -345,6 +525,49 @@ export default function DestinationDetailPage() {
 
   function scrollTo(ref: React.RefObject<HTMLDivElement>) {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function prefillReviewForm(user: AuthUser | null, existing?: UIReview) {
+    const targetReview = existing ?? findExistingReviewForUser(reviews, user);
+    if (targetReview) {
+      setReviewRating(targetReview.rating ?? null);
+      setReviewTitle(targetReview.title ?? "");
+      setReviewContent(targetReview.content ?? targetReview.comment ?? "");
+      setExistingReviewMedia(targetReview.media ?? []);
+    } else {
+      setReviewRating(null);
+      setReviewTitle("");
+      setReviewContent("");
+      setExistingReviewMedia([]);
+    }
+  }
+
+  async function handleDeleteOwnReview() {
+    if (!destination?.id || !userReview?.id || reviewDeleting) return;
+    const token = getToken();
+    const user = getUser();
+    if (!token || !user) {
+      navigate("/unauthorized", { replace: false, state: { from: location } });
+      return;
+    }
+
+    setReviewDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteDestinationReview(destination.id, userReview.id);
+      const rawReviews = await getDestinationReviews(destination.id);
+      const adaptedReviews = adaptReviewItems(rawReviews);
+      setReviews(adaptedReviews);
+      setExistingReviewMedia([]);
+      setReviewImages([]);
+      setReviewRating(null);
+      setReviewTitle("");
+      setReviewContent("");
+    } catch (err: any) {
+      setDeleteError(err?.message || "Failed to delete review");
+    } finally {
+      setReviewDeleting(false);
+    }
   }
 
   // ======== สถานะโหลด/ผิดพลาด ========
@@ -481,74 +704,93 @@ export default function DestinationDetailPage() {
                 Reviews
               </button>
             </div>
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                onClick={() => {
-                  const token = getToken();
-                  const user = getUser();
-                  if (!token || !user) {
-                    navigate("/unauthorized", { replace: false, state: { from: location } });
-                    return;
-                  }
-                  setReviewTitle("");
-                  setReviewContent("");
-                  setReviewRating(null);
-                  setReviewError(null);
-                  setReviewImages([]);
-                  setIsReviewOpen(true);
-                }}
-                className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#5d5d5d] hover:text-[#01585C]"
-                aria-label="Write a review"
-                title="Write a review"
-              >
-                <Pencil className="h-4 w-4" />
-                Review
-              </button>
-              <button
-              type="button"
-              onClick={async () => {
-                if (!destination?.id) return;
-                const token = getToken();
-                const user = getUser();
-                if (!token || !user) {
-                  navigate("/unauthorized", { replace: false, state: { from: location } });
-                  return;
-                }
-                const next = !favorite;
-                setFavorite(next);
-                if (next) {
-                  await addFavorite({
-                    id: `local:${destination.id}`,
-                    destination_id: destination.id,
-                    destination: {
-                      name: destination.name,
-                      city: destination.city ?? undefined,
-                      country: destination.country ?? undefined,
-                      category: destination.category ?? undefined,
-                      hero_image_url: destination.hero_image_url ?? undefined,
-                      slug: undefined,
-                      contact: destination.contact ?? undefined,
-                      // Use computed average and count from this page
-                      rating: ratingValue ?? destination.rating ?? undefined,
-                      review_count: reviewCount ?? destination.review_count ?? undefined,
-                    },
-                  });
-                } else {
-                  await removeFavoriteByDestinationId(destination.id);
-                }
-              }}
-              className="p-2 transition-colors"
-              aria-label="Add to favorites"
-              aria-pressed={favorite}
-              title="Add to favorites"
-            >
-              <Heart
-                className={`h-5 w-5 ${favorite ? "text-rose-500" : "text-slate-800"}`}
-                fill={favorite ? "currentColor" : "none"}
-                strokeWidth={2}
-              />
-            </button>
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-4">
+                {userReview && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteOwnReview}
+                    className="inline-flex items-center gap-2 text-[14px] font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-50"
+                    aria-label="Delete your review"
+                    title="Delete your review"
+                    disabled={reviewDeleting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const token = getToken();
+                    const user = getUser();
+                    if (!token || !user) {
+                      navigate("/unauthorized", { replace: false, state: { from: location } });
+                      return;
+                    }
+                    prefillReviewForm(user, userReview);
+                    setReviewError(null);
+                    setDeleteError(null);
+                    setReviewImages([]);
+                    setIsReviewOpen(true);
+                  }}
+                  className="inline-flex items-center gap-2 text-[14px] font-semibold text-[#5d5d5d] hover:text-[#01585C]"
+                  aria-label="Write a review"
+                  title="Write a review"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Review
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!destination?.id) return;
+                    const token = getToken();
+                    const user = getUser();
+                    if (!token || !user) {
+                      navigate("/unauthorized", { replace: false, state: { from: location } });
+                      return;
+                    }
+                    const next = !favorite;
+                    setFavorite(next);
+                    if (next) {
+                      await addFavorite({
+                        id: `local:${destination.id}`,
+                        destination_id: destination.id,
+                        destination: {
+                          name: destination.name,
+                          city: destination.city ?? undefined,
+                          country: destination.country ?? undefined,
+                          category: destination.category ?? undefined,
+                          hero_image_url: destination.hero_image_url ?? undefined,
+                          slug: undefined,
+                          contact: destination.contact ?? undefined,
+                          // Use computed average and count from this page
+                          rating: ratingValue ?? destination.rating ?? undefined,
+                          review_count: reviewCount ?? destination.review_count ?? undefined,
+                        },
+                      });
+                    } else {
+                      await removeFavoriteByDestinationId(destination.id);
+                    }
+                  }}
+                  className="p-2 transition-colors"
+                  aria-label="Add to favorites"
+                  aria-pressed={favorite}
+                  title="Add to favorites"
+                >
+                  <Heart
+                    className={`h-5 w-5 ${favorite ? "text-rose-500" : "text-slate-800"}`}
+                    fill={favorite ? "currentColor" : "none"}
+                    strokeWidth={2}
+                  />
+                </button>
+              </div>
+              {deleteError && (
+                <p className="text-xs text-rose-600">
+                  {deleteError}
+                </p>
+              )}
             </div>
           </div>
 
@@ -785,6 +1027,36 @@ export default function DestinationDetailPage() {
                 {reviewImages.length > 0 && (
                   <p className="mt-1 text-xs text-slate-500">Selected {reviewImages.length} image(s)</p>
                 )}
+                {existingReviewMedia.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-slate-500">Photos you've already shared</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {existingReviewMedia.map((media, index) => (
+                        <button
+                          type="button"
+                          key={media.id ?? `${media.url}-${index}`}
+                          className="h-20 w-20 overflow-hidden rounded-lg border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-600"
+                          onClick={() => {
+                            setReviewMediaList(existingReviewMedia);
+                            setReviewMediaIndex(index);
+                            setIsReviewMediaOpen(true);
+                          }}
+                          title="Preview photo"
+                        >
+                          <img
+                            src={media.url}
+                            alt="Existing review media"
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[11px] text-slate-400">
+                      Existing photos remain attached until you submit new ones.
+                    </p>
+                  </div>
+                )}
               </div>
               {reviewError && <p className="text-sm text-rose-600">{reviewError}</p>}
               <div className="flex items-center justify-end gap-3 pt-2">
@@ -805,9 +1077,22 @@ export default function DestinationDetailPage() {
                       setReviewError("Please add rating.");
                       return;
                     }
+                    const token = getToken();
+                    const user = getUser();
+                    if (!token || !user) {
+                      setIsReviewOpen(false);
+                      navigate("/unauthorized", { replace: false, state: { from: location } });
+                      return;
+                    }
                     try {
                       setReviewSubmitting(true);
                       setReviewError(null);
+                      setDeleteError(null);
+                      const existing = findExistingReviewForUser(reviews, user);
+                      if (existing?.id) {
+                        await deleteDestinationReview(id, existing.id);
+                        setExistingReviewMedia([]);
+                      }
                       await createDestinationReview(id, {
                         rating: reviewRating,
                         title: reviewTitle.trim() || undefined,
@@ -816,46 +1101,12 @@ export default function DestinationDetailPage() {
                       });
                       // refresh reviews
                       const rawReviews = await getDestinationReviews(id);
-                      const reviewItems = Array.isArray(rawReviews?.reviews)
-                        ? rawReviews.reviews
-                        : Array.isArray(rawReviews)
-                        ? rawReviews
-                        : [];
-                      const adaptedReviews: UIReview[] = reviewItems
-                        .map((r: any) => ({
-                          id: r?.id ?? r?.review_id,
-                          author_name:
-                            r?.reviewer?.display_name ??
-                            r?.display_name ??
-                            r?.author_name ??
-                            r?.user_name ??
-                            r?.author ??
-                            "Anonymous",
-                          rating:
-                            typeof r?.rating === "number"
-                              ? r.rating
-                              : typeof r?.stars === "number"
-                              ? r.stars
-                              : undefined,
-                          title: r?.title ?? undefined,
-                          content: r?.content ?? r?.comment ?? r?.body ?? r?.text ?? "",
-                          comment: r?.comment ?? r?.body ?? r?.text ?? r?.content ?? "",
-                          posted_at: r?.posted_at ?? r?.created_at ?? r?.date,
-                          media: Array.isArray(r?.media)
-                            ? r.media
-                                .map((m: any, i: number) => ({
-                                  id: m?.id,
-                                  url: m?.url,
-                                  ordering: m?.ordering ?? i,
-                                }))
-                                .filter((m: any) => !!m.url)
-                                .sort((a: any, b: any) => (a.ordering ?? 0) - (b.ordering ?? 0))
-                            : [],
-                        }))
-                        .filter((r: UIReview) =>
-                          r.title !== undefined || r.content !== undefined || r.comment !== undefined
-                        );
+                      const adaptedReviews = adaptReviewItems(rawReviews);
                       setReviews(adaptedReviews);
+                      setReviewImages([]);
+                      setReviewRating(null);
+                      setReviewTitle("");
+                      setReviewContent("");
                       setIsReviewOpen(false);
                     } catch (err: any) {
                       setReviewError(err?.message || "Failed to submit review");
