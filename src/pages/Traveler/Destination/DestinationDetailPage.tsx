@@ -1,12 +1,14 @@
 // src/pages/Traveler/Destination/DestinationDetailPage.tsx
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
-import { getDestinationById, getDestinationReviewById } from "../../../api";
+import { getDestination } from "../../../services/auth/destinationService";
+import { getDestinationReviews } from "../../../services/auth/destinationService";
 import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { addFavorite, removeFavoriteByDestinationId, loadFavorites } from "../../../services/favoritesService";
+import { getToken, getUser } from "../../../services/auth/authService";
 
 type UIDestination = {
   id?: string;
@@ -85,6 +87,7 @@ function formatDateTimeLocal(iso?: string) {
 export default function DestinationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [destination, setDestination] = useState<UIDestination | null>(null);
   const [reviews, setReviews] = useState<UIReview[]>([]);
@@ -166,8 +169,8 @@ export default function DestinationDetailPage() {
         setLoading(true);
 
         // --- ดึงรายละเอียดสถานที่ ---
-        const rawDest = await getDestinationById(safeId);
-        const destPayload = rawDest?.destination ?? rawDest;
+        const rawDest: any = await getDestination(safeId);
+        const destPayload: any = rawDest?.destination ?? rawDest;
 
         // TODO: map ให้ตรงกับ Swagger ถ้าชื่อฟิลด์ต่าง
         const adapted: UIDestination = {
@@ -210,7 +213,7 @@ export default function DestinationDetailPage() {
         };
 
         // --- ดึงรีวิว ---
-        const rawReviews = await getDestinationReviewById(safeId);
+        const rawReviews = await getDestinationReviews(safeId);
         const reviewItems = Array.isArray(rawReviews?.reviews)
           ? rawReviews.reviews
           : Array.isArray(rawReviews)
@@ -261,6 +264,12 @@ export default function DestinationDetailPage() {
   // Initialize favorite toggle based on current favorites storage
   useEffect(() => {
     if (!destination?.id) return;
+    const token = getToken();
+    const user = getUser();
+    if (!token || !user) {
+      setFavorite(false);
+      return;
+    }
     const list = loadFavorites();
     const isFav = list.some((x) => x.destination_id === destination.id);
     setFavorite(isFav);
@@ -408,6 +417,12 @@ export default function DestinationDetailPage() {
               type="button"
               onClick={async () => {
                 if (!destination?.id) return;
+                const token = getToken();
+                const user = getUser();
+                if (!token || !user) {
+                  navigate("/unauthorized", { replace: false, state: { from: location } });
+                  return;
+                }
                 const next = !favorite;
                 setFavorite(next);
                 if (next) {

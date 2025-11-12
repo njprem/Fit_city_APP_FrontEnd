@@ -100,3 +100,37 @@ export async function getDestination(
     throw error;
   }
 }
+
+// Public fetch: destination reviews (no auth)
+export async function getDestinationReviews(
+  id: string,
+  signal?: AbortSignal
+): Promise<any> {
+  const url = `${API_BASE_URL}/api/v1/destinations/${id}/reviews`;
+  console.log("[DEBUG] Getting destination reviews:", url);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      signal,
+    });
+
+    console.log("[DEBUG] Reviews response status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[DEBUG] Reviews error response:", errorText);
+      throw new Error(`Failed to get destination reviews: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("[DEBUG] Destination reviews:", data);
+    return data;
+  } catch (error) {
+    console.error("[DEBUG] Get destination reviews error:", error);
+    throw error;
+  }
+}
