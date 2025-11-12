@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Destination_Management from "./Destination_Management";
+import Destination_Request from "./Destination_Request";
 import Sidebar from "../Admin_Component/Sidebar";
 
 export default function Admin_Page() {
@@ -12,16 +13,19 @@ export default function Admin_Page() {
   };
 
   const renderContent = () => {
-    if (activePage === 'destinations') {
-      return <Destination_Management />;
+    switch (activePage) {
+      case 'destinations':
+        return <Destination_Management />;
+      case 'requests':
+        return <Destination_Request />;
+      default:
+        return (
+          <div className="flex-1 p-8 bg-gray-100">
+              <h1 className="text-3xl font-bold mb-4 text-gray-700">Page: {activePage}</h1>
+              <p className="text-gray-500">Select a menu option to view its content.</p>
+          </div>
+        );
     }
-    // เพิ่มหน้าอื่น ๆ ที่นี่ในอนาคต
-    return (
-        <div className="flex-1 p-8 bg-gray-100">
-            <h1 className="text-3xl font-bold mb-4 text-gray-700">Page: {activePage}</h1>
-            <p className="text-gray-500">Click Destination Management เพื่อดูหน้าจอ</p>
-        </div>
-    );
   };
 
   return (
@@ -31,11 +35,13 @@ export default function Admin_Page() {
       
       {/* 1. Sidebar */}
       {/* ⚠️ Sidebar ไม่ควรมี h-screen ซ้ำ แต่ควรใช้โครงสร้างที่กำหนดใน Sidebar.tsx แทน */}
-      <Sidebar 
-        activeKey={activePage} 
-        onMenuClick={setActivePage} 
-        onSignOut={handleSignOut}
-      />
+      <div className="sticky top-0 self-start h-screen">
+        <Sidebar 
+          activeKey={activePage} 
+          onMenuClick={setActivePage} 
+          onSignOut={handleSignOut}
+        />
+      </div>
 
       {/* 2. ส่วนเนื้อหาหลัก */}
       {/* ✅ แก้ไข: flex-1 ยืดเต็มพื้นที่ที่เหลือ, overflow-y-auto ทำให้เนื้อหาเลื่อนได้ถ้ายาวเกิน */}
