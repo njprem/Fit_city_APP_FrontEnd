@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import type { Location } from "react-router-dom";
-import Navbar from "../../../components/navbar";
-import Footer from "../../../components/footer";
-import Hero from "../../../assets/mainbg.jpg";
-import { getToken, getUser, type AuthUser } from "../../../services/auth/authService";
-import { login } from "../../../api";
-import GoogleSignInButton from "../../../components/GoogleSignInButton";
+import Navbar from "../../components/navbar";
+import Footer from "../../components/footer";
+import Hero from "../../assets/mainbg.jpg";
+import { getToken, getUser, type AuthUser } from "../../services/auth/authService";
+import { login } from "../../api";
+import GoogleSignInButton from "../../components/GoogleSignInButton";
 
 const ADMIN_ROUTE = "/admin";
 

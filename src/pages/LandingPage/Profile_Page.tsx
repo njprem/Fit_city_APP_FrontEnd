@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Pencil } from "lucide-react";
-import Navbar from "../../../components/navbar";
-import Footer from "../../../components/footer";
+import Navbar from "../../components/navbar";
+import Footer from "../../components/footer";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   fetchCurrentUser,
@@ -9,8 +9,8 @@ import {
   type UpdateProfilePayload,
   deleteUserAccount,
   changePassword,
-} from "../../../api";
-import { getUser, logout, type AuthUser } from "../../../services/auth/authService";
+} from "../../api";
+import { getUser, logout, type AuthUser } from "../../services/auth/authService";
 
 const DEFAULT_AVATAR = "https://i.pravatar.cc/150";
 

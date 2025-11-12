@@ -1,11 +1,9 @@
-// src/pages/Traveler/Favorite/FavoritePage.tsx
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import Navbar from "../../../components/navbar";
-import Footer from "../../../components/footer";
-import { favoritesEvents, loadFavorites, removeFavoriteByDestinationId, type FavoriteAddDetail, type FavoriteRemoveDetail } from "../../../services/favoritesService";
-import { getDestinationById } from "../../../api";
+import Navbar from "../../components/navbar";
+import Footer from "../../components/footer";
+import { favoritesEvents, loadFavorites, removeFavoriteByDestinationId, type FavoriteAddDetail, type FavoriteRemoveDetail } from "../../services/favoritesService";
+import { getDestinationById } from "../../api";
 import { MapPin, Phone, Heart, Star, StarHalf } from "lucide-react";
 
 type FavoriteItem = {
