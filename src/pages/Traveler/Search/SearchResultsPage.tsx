@@ -53,7 +53,12 @@ export default function SearchResultsPage() {
         }
 
         const response = await searchDestinations(query, 50, filters);
-        setDestinations(response.destinations);
+        // Prefer first gallery image as hero for each destination
+        const adapted = (response.destinations || []).map((d) => ({
+          ...d,
+          hero_image_url: (d.gallery && d.gallery[0]?.url) || d.hero_image_url,
+        }));
+        setDestinations(adapted);
       } catch (err) {
         console.error("Search error:", err);
         setError("Failed to load search results");

@@ -82,7 +82,7 @@ export default function FavoritePage() {
               const d = (raw as any)?.destination ?? (raw as any);
               const rating = typeof d?.rating === "number" ? d.rating : (typeof d?.average_rating === "number" ? d.average_rating : undefined);
               const review_count = typeof d?.review_count === "number" ? d.review_count : undefined;
-              const hero_image_url = d?.hero_image_url ?? d?.heroImageUrl ?? d?.cover_url ?? fav.destination?.hero_image_url;
+              const hero_image_url = d?.gallery?.[0]?.url ?? d?.hero_image_url ?? d?.heroImageUrl ?? d?.cover_url ?? fav.destination?.hero_image_url;
               const name = d?.name ?? fav.destination?.name;
               const city = d?.city ?? fav.destination?.city;
               const country = d?.country ?? fav.destination?.country;

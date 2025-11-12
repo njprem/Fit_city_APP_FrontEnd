@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Navbar from "../../../components/navbar";
 import Footer from "../../../components/footer";
 import { getDestinationById, getDestinationReviewById } from "../../../api";
-import { Star, StarHalf, MapPin, Phone, Clock, Heart } from "lucide-react";
+import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { addFavorite, removeFavoriteByDestinationId, loadFavorites } from "../../../services/favoritesService";
 
 type UIDestination = {
@@ -91,6 +91,35 @@ export default function DestinationDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorite, setFavorite] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number>(0);
+
+  // Keyboard controls for lightbox (ESC close, arrows navigate)
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsLightboxOpen(false);
+      } else if (e.key === "ArrowRight" && (destination?.gallery?.length ?? 0) > 1) {
+        setLightboxIndex((i) => ((i + 1) % ((destination?.gallery?.length ?? 0) || 1)));
+      } else if (e.key === "ArrowLeft" && (destination?.gallery?.length ?? 0) > 1) {
+        setLightboxIndex((i) => (i - 1 + ((destination?.gallery?.length ?? 0) || 1)) % ((destination?.gallery?.length ?? 0) || 1));
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isLightboxOpen, destination?.gallery?.length]);
+
+  // Lock document scroll when lightbox is open
+  useEffect(() => {
+    if (isLightboxOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [isLightboxOpen]);
 
   const descriptionRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
   const reviewsRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
@@ -149,10 +178,11 @@ export default function DestinationDetailPage() {
           category: destPayload?.category,
           description: destPayload?.description,
           hero_image_url:
+            // Prefer the first gallery image as hero
+            destPayload?.gallery?.[0]?.url ??
             destPayload?.hero_image_url ??
             destPayload?.heroImageUrl ??
-            destPayload?.cover_url ??
-            destPayload?.gallery?.[0]?.url,
+            destPayload?.cover_url,
           opening_time: destPayload?.opening_time ?? destPayload?.openTime ?? null,
           closing_time: destPayload?.closing_time ?? destPayload?.closeTime ?? null,
           contact: destPayload?.contact ?? destPayload?.phone ?? destPayload?.tel ?? null,
@@ -319,8 +349,12 @@ export default function DestinationDetailPage() {
                 <img
                   src={gallery[0]?.url}
                   alt={gallery[0]?.caption ?? "gallery"}
-                  className="w-full h-[260px] md:h-[300px] object-cover rounded-xl"
+                  className="w-full h-[260px] md:h-[300px] object-cover rounded-xl cursor-zoom-in"
                   loading="lazy"
+                  onClick={() => {
+                    setLightboxIndex(0);
+                    setIsLightboxOpen(true);
+                  }}
                 />
               </div>
               <div className="grid grid-rows-2 gap-4">
@@ -328,16 +362,24 @@ export default function DestinationDetailPage() {
                   <img
                     src={gallery[1]?.url}
                     alt={gallery[1]?.caption ?? "gallery"}
-                    className="w-full h-[128px] md:h-[140px] object-cover rounded-xl"
+                    className="w-full h-[128px] md:h-[140px] object-cover rounded-xl cursor-zoom-in"
                     loading="lazy"
+                    onClick={() => {
+                      setLightboxIndex(1);
+                      setIsLightboxOpen(true);
+                    }}
                   />
                 )}
                 {gallery[2] && (
                   <img
                     src={gallery[2]?.url}
                     alt={gallery[2]?.caption ?? "gallery"}
-                    className="w-full h-[128px] md:h-[140px] object-cover rounded-xl"
+                    className="w-full h-[128px] md:h-[140px] object-cover rounded-xl cursor-zoom-in"
                     loading="lazy"
+                    onClick={() => {
+                      setLightboxIndex(2);
+                      setIsLightboxOpen(true);
+                    }}
                   />
                 )}
               </div>
@@ -481,6 +523,56 @@ export default function DestinationDetailPage() {
           </section>
         </div>
       </main>
+      {isLightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <img
+            src={gallery[lightboxIndex]?.url}
+            alt={gallery[lightboxIndex]?.caption ?? destination.name ?? "image"}
+            className="max-h-screen max-w-screen object-contain select-none"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {gallery.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous image"
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i - 1 + gallery.length) % gallery.length);
+                }}
+              >
+                <ChevronLeft className="h-7 w-7" />
+              </button>
+              <button
+                type="button"
+                aria-label="Next image"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i + 1) % gallery.length);
+                }}
+              >
+                <ChevronRight className="h-7 w-7" />
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            aria-label="Close image"
+            title="Close"
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+      )}
       <Footer />
     </>
   );

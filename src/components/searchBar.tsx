@@ -82,7 +82,13 @@ export default function SearchBar({
           categories: categories.length ? categories : undefined,
         });
 
-        console.log("[SearchBar] Raw results:", response.destinations.length);
+        // Prefer first gallery image as hero for each destination in dropdown
+        const withHero: Destination[] = (response.destinations || []).map((d) => ({
+          ...d,
+          hero_image_url: (d.gallery && (d as any).gallery?.[0]?.url) || d.hero_image_url,
+        }));
+
+        console.log("[SearchBar] Raw results:", withHero.length);
 
         const queryLower = trimmedQuery.toLowerCase();
         const matchesWordStart = (text: string): boolean => {
@@ -91,7 +97,7 @@ export default function SearchBar({
           return words.some((word) => word.startsWith(queryLower));
         };
 
-        const filtered = response.destinations
+        const filtered = withHero
           .filter((dest) => {
             return (
               (!categories.length ||
