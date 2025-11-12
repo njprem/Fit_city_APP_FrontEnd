@@ -1,5 +1,5 @@
-# Build stage
-FROM node:22-alpine AS builder
+# Build stage (Node >=20, Debian-based to avoid rollup musl optional bug)
+FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
 # Build-time args
