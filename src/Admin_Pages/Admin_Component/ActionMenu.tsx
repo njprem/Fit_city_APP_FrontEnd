@@ -62,7 +62,7 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ options, isOpen, onToggle, onCl
                                 type="button"
                                 key={option.value}
                                 onClick={(e) => { e.stopPropagation(); onClose(); setTimeout(() => handleAction(option.action), 0); }}
-                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
                                 role="menuitem"
                                 tabIndex={-1}
                             >
