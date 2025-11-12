@@ -20,8 +20,7 @@ const requestTypeOptions: DropdownOption[] = [
   { value: "Food", label: "Food" },
   { value: "Culture", label: "Culture" },
   { value: "Nature", label: "Nature" },
-  { value: "Sightseeing", label: "Sightseeing" },
-  { value: "Adventure", label: "Adventure" },
+  { value: "Sport", label: "Sport" },
 ] as const;
 
 const requestStatusOptions: DropdownOption[] = [

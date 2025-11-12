@@ -34,7 +34,6 @@ export const typeOptions = [
     { value: 'Food', label: 'Food' },
     { value: 'Nature', label: 'Nature' },
     { value: 'Sport', label: 'Sport' },
-    { value: 'Sightseeing', label: 'Sightseeing' }, // Kept Sightseeing for existing mock data
 ];
 
 export const sortOptions = [
