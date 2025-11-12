@@ -1,59 +1,44 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import { ChevronDown } from 'lucide-react';
 
-interface DropdownProps {
-    title: string;
-    icon?: React.ReactNode;
-    children: React.ReactNode;
-    className?: string;
-    isFilter?: boolean; // New prop to handle filter styling/badge
+export interface DropdownOption {
+    value: string;
+    label: string;
 }
 
-const Dropdown: React.FC<DropdownProps> = ({ title, icon, children, className = '', isFilter = false }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
+export interface DropdownProps {
+    name: string;
+    value: string;
+    options: DropdownOption[];
+    onChange: (value: string) => void;
+    placeholder?: string;
+    className?: string;
+    disabled?: boolean;
+}
 
-    const handleToggle = () => setIsOpen(!isOpen);
-
-    const handleClickOutside = (event: MouseEvent) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-            setIsOpen(false);
-        }
-    };
-
-    useEffect(() => {
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
-
+const Dropdown: React.FC<DropdownProps> = ({ name, value, options, onChange, placeholder = 'Select an option', className = '', disabled = false }) => {
     return (
-        <div className={`relative inline-block text-left ${className}`} ref={dropdownRef} style={{ zIndex: isOpen ? 50 : 30 }}>
-            <button
-                type="button"
-                className={`inline-flex justify-center items-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors
-                    ${isFilter && 'pr-3'} 
-                `}
-                onClick={handleToggle}
+        <div className={`relative ${className}`}>
+            <select
+                name={name}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={disabled}
+                className={`block w-full px-4 py-2 rounded-lg focus:outline-none focus:ring-teal-500 focus:border-teal-500 appearance-none text-sm transition-colors
+                    ${disabled ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-50 text-gray-700 border border-transparent hover:border-gray-300'}`}
             >
-                {icon}
-                <span className={`truncate ${icon ? 'ml-2' : ''}`}>{title}</span>
-                <ChevronDown className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
-            </button>
-
-            {isOpen && (
-                <div
-                    className="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none"
-                    role="menu"
-                    aria-orientation="vertical"
-                    aria-labelledby="menu-button"
-                >
-                    <div className="py-1" role="none">
-                        {children}
-                    </div>
-                </div>
-            )}
+                <option value="" disabled={!value}>
+                    {placeholder}
+                </option>
+                {options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                        {option.label}
+                    </option>
+                ))}
+            </select>
+            <div className={`pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 ${disabled ? 'opacity-50' : ''}`}>
+                <ChevronDown className="h-4 w-4" />
+            </div>
         </div>
     );
 };

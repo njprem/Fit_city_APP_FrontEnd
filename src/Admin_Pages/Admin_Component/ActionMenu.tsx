@@ -1,76 +1,80 @@
-import React, { useRef, useEffect } from 'react'; // [แก้ไข] เพิ่ม useRef, useEffect
-import { MoreVertical } from 'lucide-react';
+import React, { useRef, useEffect } from 'react';
+import { MoreVertical, Eye, Edit } from 'lucide-react';
 
-// [เพิ่ม] Interface สำหรับ ActionOption
-interface ActionOption {
-    name: string;
-    onClick: () => void;
+export interface ActionOption {
+    value: string;
+    label: string;
+    action: () => void;
 }
 
-// [เพิ่ม] Interface สำหรับ Props ของ ActionMenu
-interface ActionMenuProps {
-    rowId: number; // ID ของแถวปัจจุบัน (สำหรับระบุว่าเมนูนี้เป็นของแถวไหน)
-    isOpen: boolean; // สถานะว่าเมนูนี้เปิดอยู่หรือไม่
-    setIsOpen: (id: number | null) => void; // Setter จาก Parent เพื่อบอกว่าแถวไหนที่เปิดเมนูอยู่
-    actions?: ActionOption[]; // Optional: สามารถส่งรายการ Action เข้ามาได้
+export interface ActionMenuProps {
+    options: ActionOption[];
+    isOpen: boolean;
+    onToggle: () => void;
+    onClose: () => void;
 }
 
-const ActionMenu: React.FC<ActionMenuProps> = ({ rowId, isOpen, setIsOpen, actions: propActions }) => { // [แก้ไข] กำหนด Type ให้ Props
+const ActionMenu: React.FC<ActionMenuProps> = ({ options, isOpen, onToggle, onClose }) => {
     const menuRef = useRef<HTMLDivElement>(null);
 
-    // ใช้ actions ที่ส่งมาจาก props หรือใช้ค่า default
-    const actions = propActions || [
-        { name: 'View Detail', onClick: () => console.log(`View detail for row ${rowId}`) },
-        { name: 'Edit Detail', onClick: () => console.log(`Edit detail for row ${rowId}`) },
-    ];
-    
-    // [เพิ่ม] Logic สำหรับ Click Outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (isOpen && menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setIsOpen(null); // ปิดเมนูทุกแถว
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                onClose();
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isOpen, setIsOpen]);
+    }, [onClose]);
+
+    const handleAction = (action: () => void) => {
+        action();
+        onClose();
+    };
 
     return (
-        // 🛠️ ปรับเปลี่ยน: ใช้สไตล์ Dropdown ที่มีปุ่ม Pill Shape
-        <div className="relative inline-block text-left z-10" ref={menuRef}> 
-            <button
-                onClick={() => setIsOpen(isOpen ? null : rowId)}
-                // 🛠️ สไตล์ปุ่ม: ปรับให้เป็น Pill Shape เล็กๆ สีเทาอ่อน (คล้ายปุ่ม action)
-                className="inline-flex justify-center w-full rounded-full p-1 text-gray-500 hover:text-gray-900 hover:bg-gray-200 focus:outline-none transition shadow-sm"
-            >
-                <MoreVertical size={20} />
-            </button>
-
-            {/* Dropdown Menu */}
-            {isOpen && (
-                <div 
-                    // 🛠️ ตำแหน่งและ Z-index: ชิดขวา, z-30 เพื่อให้แสดงเหนือตาราง
-                    className="origin-top-right absolute right-0 mt-2 w-40 rounded-xl shadow-2xl bg-white border border-gray-100 p-1 z-30"
+        <div className="relative inline-block text-left" ref={menuRef}>
+            <div>
+                <button
+                    type="button"
+                    className="inline-flex justify-center items-center rounded-full bg-white p-1 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none transition-colors"
+                    onClick={onToggle}
+                    aria-expanded={isOpen}
+                    aria-haspopup="true"
                 >
-                    {actions.map((action, index) => (
-                        <button
-                            key={index}
-                            onClick={() => {
-                                action.onClick();
-                                setIsOpen(null); // ปิดเมนูหลังจากคลิก
-                            }}
-                            // 🛠️ สไตล์เมนู: ปรับให้เป็น rounded-xl เหมือน Dropdown อื่นๆ
-                            className="block w-full text-left px-4 py-3 text-sm text-gray-700 rounded-xl hover:bg-blue-50 transition hover:text-blue-600 font-medium"
-                            role="menuitem"
-                        >
-                            {action.name}
-                        </button>
-                    ))}
+                    <MoreVertical className="h-5 w-5" />
+                </button>
+            </div>
+
+            {isOpen && (
+                <div
+                    className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-gray-200 focus:outline-none z-10"
+                    role="menu"
+                    aria-orientation="vertical"
+                    aria-labelledby="menu-button"
+                    tabIndex={-1}
+                >
+                    <div className="py-1" role="none">
+                        {options.map((option) => (
+                            <button
+                                key={option.value}
+                                onClick={() => handleAction(option.action)}
+                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
+                                role="menuitem"
+                                tabIndex={-1}
+                            >
+                                {option.value === 'view' && <Eye className="h-4 w-4 mr-2" />}
+                                {option.value === 'edit' && <Edit className="h-4 w-4 mr-2" />}
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
         </div>
     );
 };
+
 export default ActionMenu;

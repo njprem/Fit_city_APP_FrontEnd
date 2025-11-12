@@ -1,4 +1,10 @@
 // src/App.tsx
+type DashboardCardProps = {
+  title: string;
+  value: number | string;
+  subtitle?: string;
+};
+
 const adminData = {
   totalAccounts: 5000,
   activeAccounts: 238,
@@ -41,9 +47,9 @@ const adminData = {
       adminName: "Alexander Thalorian Crestfield",
     },
   ],
-};
+} as const;
 
-function DashboardCard({ title, value, subtitle }) {
+function DashboardCard({ title, value, subtitle }: DashboardCardProps) {
   return (
     <div className="bg-white shadow rounded p-4 flex flex-col">
       <span className="text-gray-500 text-sm">{title}</span>
