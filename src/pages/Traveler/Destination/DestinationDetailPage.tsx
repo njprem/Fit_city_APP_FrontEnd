@@ -100,6 +100,10 @@ export default function DestinationDetailPage() {
   const [favorite, setFavorite] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number>(0);
+  // Review media lightbox
+  const [isReviewMediaOpen, setIsReviewMediaOpen] = useState(false);
+  const [reviewMediaIndex, setReviewMediaIndex] = useState<number>(0);
+  const [reviewMediaList, setReviewMediaList] = useState<Array<{ id?: string; url: string }>>([]);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [reviewRating, setReviewRating] = useState<number | null>(null);
   const [reviewTitle, setReviewTitle] = useState("");
@@ -134,6 +138,33 @@ export default function DestinationDetailPage() {
       };
     }
   }, [isLightboxOpen]);
+
+  // Keyboard controls for review media lightbox
+  useEffect(() => {
+    if (!isReviewMediaOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsReviewMediaOpen(false);
+      } else if (e.key === "ArrowRight" && reviewMediaList.length > 1) {
+        setReviewMediaIndex((i) => (i + 1) % reviewMediaList.length);
+      } else if (e.key === "ArrowLeft" && reviewMediaList.length > 1) {
+        setReviewMediaIndex((i) => (i - 1 + reviewMediaList.length) % reviewMediaList.length);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isReviewMediaOpen, reviewMediaList.length]);
+
+  // Lock document scroll when review media lightbox is open
+  useEffect(() => {
+    if (isReviewMediaOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [isReviewMediaOpen]);
 
   // Lock document scroll when review modal is open
   useEffect(() => {
@@ -472,7 +503,7 @@ export default function DestinationDetailPage() {
                 title="Write a review"
               >
                 <Pencil className="h-4 w-4" />
-                Write a review
+                Review
               </button>
               <button
               type="button"
@@ -601,12 +632,16 @@ export default function DestinationDetailPage() {
                     {Array.isArray(r.media) && r.media.length > 0 && (
                       <div className="mt-3 grid grid-cols-3 gap-2">
                         {r.media.map((m, mi) => (
-                          <a
+                          <button
                             key={m.id ?? mi}
-                            href={m.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="block"
+                            type="button"
+                            className="block focus:outline-none"
+                            onClick={() => {
+                              setReviewMediaList(r.media!.map(({ id, url }) => ({ id, url })));
+                              setReviewMediaIndex(mi);
+                              setIsReviewMediaOpen(true);
+                            }}
+                            aria-label="View review image"
                           >
                             <img
                               src={m.url}
@@ -614,7 +649,7 @@ export default function DestinationDetailPage() {
                               className="w-full h-24 object-cover rounded-lg"
                               loading="lazy"
                             />
-                          </a>
+                          </button>
                         ))}
                       </div>
                     )}
@@ -843,6 +878,56 @@ export default function DestinationDetailPage() {
               <X className="h-5 w-5 text-slate-500" />
             </button>
           </div>
+        </div>
+      )}
+      {isReviewMediaOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsReviewMediaOpen(false)}
+        >
+          <img
+            src={reviewMediaList[reviewMediaIndex]?.url}
+            alt="review media"
+            className="max-h-screen max-w-screen object-contain select-none"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {reviewMediaList.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous image"
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReviewMediaIndex((i) => (i - 1 + reviewMediaList.length) % reviewMediaList.length);
+                }}
+              >
+                <ChevronLeft className="h-7 w-7" />
+              </button>
+              <button
+                type="button"
+                aria-label="Next image"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setReviewMediaIndex((i) => (i + 1) % reviewMediaList.length);
+                }}
+              >
+                <ChevronRight className="h-7 w-7" />
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            aria-label="Close image"
+            title="Close"
+            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white"
+            onClick={() => setIsReviewMediaOpen(false)}
+          >
+            <X className="h-6 w-6" />
+          </button>
         </div>
       )}
       <Footer />
