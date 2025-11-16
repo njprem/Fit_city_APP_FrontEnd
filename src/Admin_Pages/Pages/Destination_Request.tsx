@@ -2,7 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownWideNarrow, SlidersHorizontal, CheckCircle2, XCircle } from "lucide-react";
 import Dropdown, { type DropdownOption } from "../Admin_Component/Dropdown";
 import SearchBar from "../Admin_Component/SearchBar";
-import { approveDestinationChange, fetchDestinationChanges, rejectDestinationChange, type DestinationChange } from "../../api";
+import DestinationForm, { emptyDestinationInitialData, type DestinationFormData } from "../Admin_Component/Destination_Form";
+import {
+  approveDestinationChange,
+  fetchDestinationChangeById,
+  fetchDestinationChanges,
+  rejectDestinationChange,
+  type DestinationChange,
+  type DestinationChangeDetailResponse,
+  type DestinationChangeFields,
+} from "../../api";
 
 type RequestStatus = "ADD" | "EDIT" | "DELETE";
 
@@ -42,6 +51,69 @@ const statusStyles: Record<RequestStatus, string> = {
   DELETE: "bg-[#ffe8e8] text-[#c03434]",
 };
 
+const toNumberOrNull = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+};
+
+const collectImageSources = (fields?: DestinationChangeFields): string[] => {
+  if (!fields) return [];
+  const images = new Set<string>();
+  const pushIfValid = (candidate?: unknown) => {
+    if (typeof candidate === "string") {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        images.add(trimmed);
+      }
+    }
+  };
+
+  pushIfValid(fields.hero_image_url);
+  pushIfValid(fields.published_hero_image);
+
+  if (Array.isArray(fields.gallery)) {
+    fields.gallery.forEach((item) => {
+      if (item && typeof item === "object" && "url" in item) {
+        pushIfValid(item.url);
+      }
+    });
+  }
+
+  return Array.from(images);
+};
+
+const mapChangeDetailToFormData = (
+  change: DestinationChangeDetailResponse["change_request"]
+): DestinationFormData => {
+  const fields = change.fields ?? {};
+  const base = { ...emptyDestinationInitialData };
+
+  return {
+    ...base,
+    id: change.destination_id ?? change.id ?? base.id,
+    name: typeof fields.name === "string" ? fields.name : base.name,
+    type: typeof fields.category === "string" ? fields.category : base.type,
+    contact: typeof fields.contact === "string" ? fields.contact : base.contact,
+    country: typeof fields.country === "string" ? fields.country : base.country,
+    city: typeof fields.city === "string" ? fields.city : base.city,
+    latitude: toNumberOrNull(fields.latitude) ?? base.latitude,
+    longitude: toNumberOrNull(fields.longitude) ?? base.longitude,
+    openingTime: typeof fields.opening_time === "string" ? fields.opening_time : base.openingTime,
+    closingTime: typeof fields.closing_time === "string" ? fields.closing_time : base.closingTime,
+    description: typeof fields.description === "string" ? fields.description : base.description,
+    images: collectImageSources(fields),
+    imageFiles: [],
+  };
+};
+
 const DestinationRequestPage = () => {
   const [requests, setRequests] = useState<DestinationRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,6 +132,11 @@ const DestinationRequestPage = () => {
   const [isRejectWarningOpen, setIsRejectWarningOpen] = useState(false);
   const [rejectMessage, setRejectMessage] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
+  const [detailFormData, setDetailFormData] = useState<DestinationFormData | null>(null);
   const sortRef = useRef<HTMLDivElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
 
@@ -108,6 +185,26 @@ const DestinationRequestPage = () => {
     []
   );
 
+  const loadRequestDetails = useCallback(async (requestId: string) => {
+    if (!requestId) return;
+    setActiveRequestId(requestId);
+    setIsDetailLoading(true);
+    setDetailError(null);
+    setDetailFormData(null);
+    try {
+      const detail = await fetchDestinationChangeById(requestId);
+      setDetailFormData(mapChangeDetailToFormData(detail.change_request));
+      setIsDetailViewOpen(true);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to load destination request details.";
+      setDetailError(message);
+      setIsDetailViewOpen(false);
+    } finally {
+      setIsDetailLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadRequests();
   }, [loadRequests]);
@@ -154,6 +251,18 @@ const DestinationRequestPage = () => {
   }, [filteredRequests]);
 
   useEffect(() => {
+    if (!activeRequestId) {
+      return;
+    }
+    const stillExists = requests.some((request) => request.id === activeRequestId);
+    if (!stillExists) {
+      setActiveRequestId(null);
+      setIsDetailViewOpen(false);
+      setDetailFormData(null);
+    }
+  }, [activeRequestId, requests]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (isSortOpen && sortRef.current && !sortRef.current.contains(event.target as Node)) {
         setIsSortOpen(false);
@@ -191,6 +300,12 @@ const DestinationRequestPage = () => {
         ? `Showing results for “${searchTerm.trim()}”.`
         : "Showing all destination requests."
     );
+  };
+
+  const handleCloseDetailView = () => {
+    setIsDetailViewOpen(false);
+    setDetailFormData(null);
+    setActiveRequestId(null);
   };
 
   const handleApprove = async () => {
@@ -385,10 +500,16 @@ const DestinationRequestPage = () => {
         </div>
       </div>
 
-      {(apiError || actionError) && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {actionError ?? apiError}
-        </div>
+      {[actionError, apiError, detailError].map(
+        (message, index) =>
+          message && (
+            <div
+              key={`${message}-${index}`}
+              className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700"
+            >
+              {message}
+            </div>
+          )
       )}
 
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -426,7 +547,16 @@ const DestinationRequestPage = () => {
               </tr>
             ) : (
               filteredRequests.map((request) => (
-                <tr key={request.id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={request.id}
+                  onClick={() => {
+                    void loadRequestDetails(request.id);
+                  }}
+                  className={`transition-colors cursor-pointer ${
+                    activeRequestId === request.id ? "bg-indigo-50" : "hover:bg-gray-50"
+                  }`}
+                  aria-selected={activeRequestId === request.id}
+                >
                   <td className="px-6 py-4">
                     <span
                       className={`px-4 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${statusStyles[request.status]}`}
@@ -443,7 +573,10 @@ const DestinationRequestPage = () => {
                     <input
                       type="checkbox"
                       checked={selectedIds.includes(request.id)}
-                      onChange={() => toggleSelectOne(request.id)}
+                      onChange={(event) => {
+                        event.stopPropagation();
+                        toggleSelectOne(request.id);
+                      }}
                       className="w-4 h-4 accent-indigo-600"
                     />
                   </td>
@@ -458,6 +591,25 @@ const DestinationRequestPage = () => {
         <div className="text-right text-xs text-gray-500 mt-2">{lastActionMessage}</div>
       )}
     </div>
+
+    {isDetailLoading && (
+      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/20">
+        <div className="rounded-lg bg-white px-4 py-3 text-sm text-gray-700 shadow">Loading request details...</div>
+      </div>
+    )}
+
+    {isDetailViewOpen && detailFormData && (
+      <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 px-4 py-8">
+        <div className="mx-auto max-w-6xl">
+          <DestinationForm
+            initialData={detailFormData}
+            viewMode="view"
+            onSave={() => undefined}
+            onCancel={handleCloseDetailView}
+          />
+        </div>
+      </div>
+    )}
 
     {isRejectWarningOpen && (
       <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">

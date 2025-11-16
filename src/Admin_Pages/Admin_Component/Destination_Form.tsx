@@ -7,7 +7,7 @@ import type { DropdownOption } from './Dropdown';
 import ImageUploader from './ImageUploader';
 
 export interface DestinationFormData {
-    id: number | null;
+    id: number | string | null;
     name: string;
     type: string;    
     contact: string; // Stays as string to allow prefixes like '+' or spaces/hyphens
@@ -82,6 +82,7 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
     const [formData, setFormData] = useState<DestinationFormData>(initialData);
     const [imageFiles, setImageFiles] = useState<File[]>(initialData.imageFiles || []);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const numericFormId = typeof formData.id === 'number' ? formData.id : null;
 
     // Update formData and imageFiles when initialData or viewMode changes
     useEffect(() => {
@@ -198,10 +199,10 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">{pageTitle}</h1>
                 <div className='flex space-x-3'>
-                    {isEditMode && onDelete && (
+                    {isEditMode && onDelete && numericFormId !== null && (
                         <button
                             type="button"
-                            onClick={() => onDelete(formData.id!)} 
+                            onClick={() => onDelete(numericFormId)} 
                             className="p-2 rounded-full text-red-600 hover:bg-red-100 transition-colors"
                             aria-label="Delete Destination"
                         >
