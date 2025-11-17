@@ -105,7 +105,7 @@ export default function SearchResultsPage() {
           <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
             <div className="flex flex-wrap items-center gap-4">
               {/* Filter Toggle */}
-              <button
+              <button type='button'
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition"
               >
@@ -143,7 +143,7 @@ export default function SearchResultsPage() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {CATEGORIES.map((category) => (
-                    <button
+                    <button type='button'
                       key={category}
                       onClick={() => toggleCategory(category)}
                       className={[
@@ -190,7 +190,7 @@ export default function SearchResultsPage() {
               <p className="text-slate-600 mb-6">
                 Please try different keywords or adjust your filters.
               </p>
-              <button
+              <button type='button'
                 onClick={() => {
                   setSelectedCategories([]);
                   navigate("/");
@@ -206,7 +206,7 @@ export default function SearchResultsPage() {
           {!loading && !error && destinations.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {destinations.map((destination) => (
-                <button
+                <button type='button'
                   key={destination.id}
                   onClick={() => handleDestinationClick(destination.id)}
                   className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden text-left"

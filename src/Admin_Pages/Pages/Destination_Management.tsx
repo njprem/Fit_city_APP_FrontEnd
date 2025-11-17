@@ -4,13 +4,14 @@ import { Plus, ChevronDown, ArrowDownWideNarrow, SlidersHorizontal } from 'lucid
 import SearchBar from '../Admin_Component/SearchBar';
 import Dropdown from '../Admin_Component/Dropdown';
 import ConfirmPopup from '../Admin_Component/Confirm_Popup';
-import DestinationForm, { emptyDestinationInitialData, mockEditDestinationData, mockViewDestinationData, type DestinationFormData } from '../Admin_Component/Destination_Form';
+import DestinationForm from '../Admin_Component/Destination_Form';
+import { emptyDestinationInitialData, mockEditDestinationData, mockViewDestinationData, type DestinationFormData } from '../Admin_Component/destinationFormData';
 import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
 import ActionMenu from '../Admin_Component/ActionMenu';
 
 
 // #region Mock Data & Logic
-export interface Destination {
+interface Destination {
     id: number;
     status: StatusType;
     name: string;
@@ -19,7 +20,7 @@ export interface Destination {
     adminName: string;
 }
 
-export const destinationData: Destination[] = [
+const destinationData: Destination[] = [
     { id: 1, status: 'Active', name: 'France: Hands-On Cooking Class with Pâtisserie Chef Noémie', type: 'Food', createdBy: 'S123456', adminName: 'Liora Nyen' },
     { id: 5, status: 'Active', name: 'Iceland: Northern Lights & Glacier Hike', type: 'Nature', createdBy: 'S123459', adminName: 'John Doe' },
     { id: 3, status: 'Active', name: 'New York: Central Park Photography Workshop', type: 'Sightseeing', createdBy: 'S123457', adminName: 'Alex Chen' },
@@ -29,7 +30,7 @@ export const destinationData: Destination[] = [
 ];
 
 // Draft dataset (uses different status values)
-export const draftDestinationData: Destination[] = [
+const draftDestinationData: Destination[] = [
     { id: 101, status: 'Add', name: 'Kyoto: Tea Ceremony Experience', type: 'Culture', createdBy: 'S223456', adminName: 'Haruto Tanaka' },
     { id: 102, status: 'Edit', name: 'Bali: Ubud Rice Terraces Walk', type: 'Sightseeing', createdBy: 'S223457', adminName: 'Ayu Putri' },
     { id: 103, status: 'Delete', name: 'Barcelona: Gaudí Architecture Tour', type: 'Sightseeing', createdBy: 'S223458', adminName: 'Carlos Ruiz' },
@@ -38,14 +39,14 @@ export const draftDestinationData: Destination[] = [
 ];
 
 // ** Updated Type Options **
-export const typeOptions = [
+const typeOptions = [
     { value: 'Culture', label: 'Culture' },
     { value: 'Food', label: 'Food' },
     { value: 'Nature', label: 'Nature' },
     { value: 'Sport', label: 'Sport' },
 ];
 
-export const sortOptions = [
+const sortOptions = [
     { value: 'id_low', label: 'ID (Low to High)' },
     { value: 'id_high', label: 'ID (High to Low)' },
     { value: 'name_asc', label: 'Name (A-Z)' },
@@ -144,7 +145,7 @@ const DestinationManagement: React.FC = () => {
                 } else {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
-            } catch (_) {
+            } catch {
                 // no-op for non-browser environments
             }
         }
@@ -356,7 +357,7 @@ const DestinationManagement: React.FC = () => {
                    <div className="flex space-x-3">
                         {/* Sort Dropdown */}
                         <div className="relative" ref={sortRef}> {/* <<-- [แก้ไขที่ 20] เพิ่ม ref */}
-                            <button
+                            <button type='button'
                                 onClick={handleToggleSort} // <<-- [แก้ไขที่ 21] ใช้ฟังก์ชันใหม่
                                 className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm text-sm"
                             >
@@ -367,7 +368,7 @@ const DestinationManagement: React.FC = () => {
                            {isSortOpen && (
                                 <div className="absolute right-0 mt-2 w-48 rounded-md shadow-xl bg-white ring-1 ring-gray-200 z-10 p-2">
                                     {sortOptions.map(option => (
-                                        <button
+                                        <button type='button'
                                             key={option.value}
                                             onClick={() => { setSortBy(option.value); setIsSortOpen(false); }}
                                             className={`block w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${sortBy === option.value ? 'bg-indigo-500 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
@@ -381,7 +382,7 @@ const DestinationManagement: React.FC = () => {
 
                       {/* Filter Dropdown */}
                         <div className="relative" ref={filterRef}> {/* <<-- [แก้ไขที่ 22] เพิ่ม ref */}
-                            <button
+                            <button type='button'
                                 onClick={handleToggleFilter} // <<-- [แก้ไขที่ 23] ใช้ฟังก์ชันใหม่
                                 className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm text-sm"
                             >
@@ -426,7 +427,7 @@ const DestinationManagement: React.FC = () => {
                                     </div>
                                     
                                     <div className="flex justify-end pt-2">
-                                        <button 
+                                        <button  type='button'
                                             onClick={() => {setFilterType(''); setFilterStatus(''); setIsFilterOpen(false);}}
                                             className="text-sm text-red-500 hover:text-red-700 transition-colors"
                                         >
@@ -437,7 +438,7 @@ const DestinationManagement: React.FC = () => {
                             )}
                         </div>
 
-                        <button 
+                        <button  type='button'
                             onClick={() => { 
                                 setFormDataForForm(emptyDestinationInitialData);
                                 setViewMode('add'); 
@@ -455,13 +456,13 @@ const DestinationManagement: React.FC = () => {
                 
                 {/* Tabs */}
                 <div className="flex w-full rounded-t-xl overflow-hidden">
-                    <button
+                    <button type='button'
                         onClick={() => setActiveTab('published')}
                         className={`flex-1 px-4 py-2 text-sm font-medium border ${activeTab === 'published' ? 'bg-green-100 text-green-800 border-green-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
                     >
                         Published Destination
                     </button>
-                    <button
+                    <button type='button'
                         onClick={() => setActiveTab('draft')}
                         className={`flex-1 px-4 py-2 text-sm font-medium border-t border-b ${activeTab === 'draft' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
                     >

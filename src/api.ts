@@ -7,7 +7,7 @@ import {
   type AuthSession,
   type AuthUser,
 } from "./services/auth/authService";
-// import type { Destination } from "./types/destination";
+import type { DestinationByIdPayload, DestinationReviewsPayload } from "./types/destination";
 
 const handleUnauthorized = () => {
   logout();
@@ -159,7 +159,7 @@ export async function confirmPasswordReset(email: string, otp: string, newPasswo
   }
 }
 
-export async function getDestinationById(id: string): Promise<any> {
+export async function getDestinationById(id: string): Promise<DestinationByIdPayload> {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/destinations/${id}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -170,10 +170,10 @@ export async function getDestinationById(id: string): Promise<any> {
     throw new Error(msg || "Unable to fetch destination details");
   }
 
-  return await res.json();
+  return (await res.json()) as DestinationByIdPayload;
 }
 
-export async function getDestinationReviewById(id: string): Promise<any> {
+export async function getDestinationReviewById(id: string): Promise<DestinationReviewsPayload> {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/destinations/${id}/reviews`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -184,7 +184,7 @@ export async function getDestinationReviewById(id: string): Promise<any> {
     throw new Error(msg || "Unable to fetch destination reviews");
   }
 
-  return await res.json();
+  return (await res.json()) as DestinationReviewsPayload;
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {

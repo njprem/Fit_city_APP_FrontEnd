@@ -2,27 +2,12 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/navbar";
 import Footer from "../../components/footer";
-import { favoritesEvents, loadFavorites, removeFavoriteByDestinationId, type FavoriteAddDetail, type FavoriteRemoveDetail } from "../../services/favoritesService";
+import { favoritesEvents, loadFavorites, removeFavoriteByDestinationId, type FavoriteAddDetail, type FavoriteItemLike, type FavoriteRemoveDetail } from "../../services/favoritesService";
 import { getDestinationById } from "../../api";
 import { MapPin, Phone, Heart, Star, StarHalf } from "lucide-react";
+import type { Destination, DestinationByIdPayload, DestinationResponse } from "../../types/destination";
 
-type FavoriteItem = {
-  id: string; // favorite id
-  destination_id: string;
-  saved_at?: string;
-  destination: {
-    name?: string;
-    city?: string;
-    country?: string;
-    category?: string;
-    hero_image_url?: string;
-    slug?: string;
-    // ถ้ามีใน Swagger จริง ให้เพิ่ม/เปลี่ยนชื่อ field ได้
-    contact?: string;
-    rating?: number;
-    review_count?: number;
-  };
-};
+type FavoriteItem = FavoriteItemLike;
 
 function RatingStars({ rating }: { rating: number }) {
   const full = Math.floor(rating);
@@ -46,6 +31,21 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 
+const isDestinationResponse = (payload: DestinationByIdPayload): payload is DestinationResponse => {
+  return typeof payload === "object" && payload !== null && "destination" in payload;
+};
+
+const extractDestination = (payload: DestinationByIdPayload): Destination => {
+  return isDestinationResponse(payload) ? payload.destination : payload;
+};
+
+type DestinationLike = Destination & {
+  rating?: number;
+  review_count?: number;
+  heroImageUrl?: string;
+  cover_url?: string;
+};
+
 export default function FavoritePage() {
   const [items, setItems] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +55,7 @@ export default function FavoritePage() {
   useEffect(() => {
     setLoading(true);
     try {
-      const list = loadFavorites() as unknown as FavoriteItem[];
+      const list = loadFavorites();
       setItems(list);
       setError(null);
     } catch (e) {
@@ -70,20 +70,39 @@ export default function FavoritePage() {
   useEffect(() => {
     let cancelled = false;
     async function enrich() {
-      const lacking = items.filter((it) => typeof it.destination?.rating !== "number" || typeof it.destination?.review_count !== "number");
+      const lacking = items.filter(
+        (it) =>
+          typeof it.destination?.rating !== "number" ||
+          typeof it.destination?.review_count !== "number"
+      );
       if (lacking.length === 0) return;
       try {
         const updates = await Promise.all(
           lacking.map(async (fav) => {
             try {
               const raw = await getDestinationById(fav.destination_id);
-              const d = (raw as any)?.destination ?? (raw as any);
-              const rating = typeof d?.rating === "number" ? d.rating : (typeof d?.average_rating === "number" ? d.average_rating : undefined);
-              const review_count = typeof d?.review_count === "number" ? d.review_count : undefined;
-              const hero_image_url = d?.gallery?.[0]?.url ?? d?.hero_image_url ?? d?.heroImageUrl ?? d?.cover_url ?? fav.destination?.hero_image_url;
-              const name = d?.name ?? fav.destination?.name;
-              const city = d?.city ?? fav.destination?.city;
-              const country = d?.country ?? fav.destination?.country;
+              const destination = extractDestination(raw) as DestinationLike;
+              const rating =
+                typeof destination.rating === "number"
+                  ? destination.rating
+                  : typeof destination.average_rating === "number"
+                  ? destination.average_rating
+                  : undefined;
+              const review_count =
+                typeof destination.review_count === "number"
+                  ? destination.review_count
+                  : typeof destination.total_reviews === "number"
+                  ? destination.total_reviews
+                  : undefined;
+              const hero_image_url =
+                destination.gallery?.[0]?.url ??
+                destination.hero_image_url ??
+                destination.heroImageUrl ??
+                destination.cover_url ??
+                fav.destination?.hero_image_url;
+              const name = destination.name ?? fav.destination?.name;
+              const city = destination.city ?? fav.destination?.city;
+              const country = destination.country ?? fav.destination?.country;
               return { destination_id: fav.destination_id, rating, review_count, hero_image_url, name, city, country };
             } catch {
               return null;
@@ -93,7 +112,7 @@ export default function FavoritePage() {
         if (cancelled) return;
         setItems((prev) =>
           prev.map((it) => {
-            const u = updates.find((x) => x && x.destination_id === it.destination_id);
+            const u = updates.find((x): x is NonNullable<typeof x> => Boolean(x && x.destination_id === it.destination_id));
             if (!u) return it;
             return {
               ...it,
@@ -121,22 +140,21 @@ export default function FavoritePage() {
 
   // ฟัง event จากหน้าอื่น (เช่น DestinationDetailPage) เพื่ออัปเดตรายการแบบเรียลไทม์
   useEffect(() => {
-    const offAdd = favoritesEvents.onAdd(((e: CustomEvent<FavoriteAddDetail>) => {
-      const fav = e.detail;
+    const offAdd = favoritesEvents.onAdd((event: CustomEvent<FavoriteAddDetail>) => {
+      const fav = event.detail;
       setItems((prev) => {
-        // ถ้ามีอยู่แล้วด้วย destination_id เดิม ให้ทับข้อมูล (หรือข้าม)
         const exists = prev.some((x) => x.destination_id === fav.destination_id);
         if (exists) {
-          return prev.map((x) => (x.destination_id === fav.destination_id ? { ...x, ...fav } as any : x));
+          return prev.map((x) => (x.destination_id === fav.destination_id ? { ...x, ...fav } : x));
         }
-        return [{ ...(fav as any) }, ...prev];
+        return [fav, ...prev];
       });
-    }) as any);
+    });
 
-    const offRemove = favoritesEvents.onRemove(((e: CustomEvent<FavoriteRemoveDetail>) => {
-      const { destination_id } = e.detail;
+    const offRemove = favoritesEvents.onRemove((event: CustomEvent<FavoriteRemoveDetail>) => {
+      const { destination_id } = event.detail;
       setItems((prev) => prev.filter((x) => x.destination_id !== destination_id));
-    }) as any);
+    });
 
     return () => {
       offAdd();
@@ -213,7 +231,7 @@ export default function FavoritePage() {
                       <img
                         src={d.hero_image_url || "/assets/destinations/sky-1.jpg"}
                         alt={d.name ?? "destination"}
-                        className="w-[280px] h-[160px] object-cover rounded-xl"
+                        className="w-[280px] h-40 object-cover rounded-xl"
                         loading="lazy"
                       />
                     </Link>

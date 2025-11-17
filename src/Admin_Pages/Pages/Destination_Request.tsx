@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownWideNarrow, SlidersHorizontal, CheckCircle2, XCircle } from "lucide-react";
 import Dropdown, { type DropdownOption } from "../Admin_Component/Dropdown";
 import SearchBar from "../Admin_Component/SearchBar";
-import DestinationForm, { emptyDestinationInitialData, type DestinationFormData } from "../Admin_Component/Destination_Form";
+import DestinationForm from "../Admin_Component/Destination_Form";
+import { emptyDestinationInitialData, type DestinationFormData } from "../Admin_Component/destinationFormData";
 import {
   approveDestinationChange,
   fetchDestinationChangeById,

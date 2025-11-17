@@ -56,7 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ // [แก้ไข] กำหนด 
 
           return (
             <div key={item.key} className="relative">
-              <button
+              <button type='button'
                 onClick={() => onMenuClick && onMenuClick(item.key)}
                 className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-full transition duration-150 ease-in-out
                   ${isActive 
@@ -86,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ // [แก้ไข] กำหนด 
             <p className="text-xs text-gray-500 truncate">@{adminEmail}</p> 
           </div>
 
-          <button
+          <button type='button'
             onClick={onSignOut}
             className="text-gray-500 hover:text-red-600 transition p-1"
             title="Sign Out"
