@@ -85,7 +85,7 @@ export default function SearchBar({
         // Prefer first gallery image as hero for each destination in dropdown
         const withHero: Destination[] = (response.destinations || []).map((d) => ({
           ...d,
-          hero_image_url: (d.gallery && (d as any).gallery?.[0]?.url) || d.hero_image_url,
+          hero_image_url: d.gallery?.[0]?.url ?? d.hero_image_url,
         }));
 
         console.log("[SearchBar] Raw results:", withHero.length);

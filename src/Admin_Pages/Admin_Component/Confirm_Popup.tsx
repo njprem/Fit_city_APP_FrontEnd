@@ -30,13 +30,13 @@ const ConfirmPopup: React.FC<ConfirmPopupProps> = ({
                 <h2 className="text-xl font-bold text-gray-900 mb-4">{title}</h2>
                 <p className="text-gray-600 mb-6">{message}</p>
                 <div className="flex justify-end space-x-3">
-                    <button
+                    <button type='button'
                         onClick={onCancel}
                         className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors shadow-sm"
                     >
                         <X className="w-4 h-4 mr-1" /> {cancelText}
                     </button>
-                    <button
+                    <button type='button'
                         onClick={onConfirm}
                         className={`flex items-center px-4 py-2 text-white rounded-lg transition-colors shadow-md ${confirmButtonClass}`}
                     >
