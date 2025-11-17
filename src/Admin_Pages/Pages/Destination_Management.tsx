@@ -10,6 +10,10 @@ import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
 import ActionMenu from '../Admin_Component/ActionMenu';
 import { fetchDestinationChanges, submitDestinationChange, type DestinationChange } from '../../api';
 
+interface DestinationManagementProps {
+    onNavigateToRequests?: () => void;
+}
+
 
 // #region Mock Data & Logic
 interface Destination {
@@ -19,6 +23,7 @@ interface Destination {
     type: string;
     createdBy: string;
     adminName: string;
+    changeRequestId?: string;
 }
 
 // ** Updated Type Options **
@@ -109,6 +114,7 @@ const adaptApprovedChangeToDestination = (change: DestinationChange): Destinatio
 
     return {
         id: change.destination_id ?? change.id,
+        changeRequestId: change.id,
         status: deriveStatusFromChange(change),
         name,
         type: typeLabel,
@@ -128,6 +134,7 @@ const adaptDraftChangeToDestination = (change: DestinationChange): Destination =
 
     return {
         id: change.id,
+        changeRequestId: change.id,
         status: mapDraftStatus(change),
         name,
         type: typeLabel,
@@ -138,7 +145,7 @@ const adaptDraftChangeToDestination = (change: DestinationChange): Destination =
 // #endregion Mock Data & Logic
 
 
-const DestinationManagement: React.FC = () => {
+const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigateToRequests }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('');
     const [filterType, setFilterType] = useState('');
@@ -175,27 +182,48 @@ const DestinationManagement: React.FC = () => {
         setDraftReloadToken(prev => prev + 1);
     };
 
-    const handleSubmitDraft = async (id: Destination['id']) => {
-        if (typeof id !== 'string') {
-            console.error('Cannot submit draft without a string change ID');
+    const handleSubmitDraft = async (changeId?: string | null) => {
+        console.log('[DestinationManagement] handleSubmitDraft called with changeId:', changeId);
+        const effectiveId = typeof changeId === 'string' && changeId.trim() ? changeId : undefined;
+
+        if (!effectiveId) {
+            console.error('[DestinationManagement] Cannot submit draft without a valid change request ID', { changeId });
+            setConfirmAction({
+                title: 'Submission Failed',
+                message: 'This draft cannot be submitted because it does not have a change request ID yet.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
             return;
         }
         try {
-            await submitDestinationChange(id);
+            console.log('[DestinationManagement] Submitting draft to backend with ID:', effectiveId);
+            const response = await submitDestinationChange(effectiveId);
+            const submittedId = response.change_request?.destination_id ?? response.change_request?.id ?? effectiveId;
+            const serverMessage = response.message || `Destination ${submittedId} has been submitted for review.`;
             setConfirmAction({
                 title: 'Submitted for Review',
-                message: `Draft ${id} has been submitted for review.`,
+                message: serverMessage,
                 confirmText: 'OK',
                 confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
                 handler: () => {
                     setIsConfirmVisible(false);
                     setConfirmAction(null);
                     setDraftReloadToken(prev => prev + 1);
+                    if (onNavigateToRequests) {
+                        console.log('[DestinationManagement] Navigating to Destination Request page after submit');
+                        onNavigateToRequests();
+                    }
                 }
             });
             setIsConfirmVisible(true);
         } catch (error) {
-            console.error('Failed to submit draft change request', error);
+            console.error('[DestinationManagement] Failed to submit draft change request', error);
             setConfirmAction({
                 title: 'Submission Failed',
                 message: error instanceof Error ? error.message : 'Unable to submit draft for review.',
@@ -466,8 +494,10 @@ const DestinationManagement: React.FC = () => {
                         .map(d => (typeof d.id === 'number' ? d.id : Number.parseInt(String(d.id), 10)))
                         .filter((value): value is number => Number.isFinite(value));
                     const newId = (numericIds.length ? Math.max(...numericIds) : 0) + 1;
+                    const localChangeId = `local-draft-${newId}-${Date.now()}`;
                     const newDraft: Destination = {
                         id: newId,
+                        changeRequestId: localChangeId,
                         status: 'Add',
                         name: data.name,
                         type: data.type || 'Sightseeing',
@@ -721,8 +751,11 @@ const DestinationManagement: React.FC = () => {
                                     </td>
                                 </tr>
                             ) : filteredAndSortedData.length > 0 ? (
-                                filteredAndSortedData.map((destination) => (
-                                    <tr key={destination.id} className="hover:bg-gray-50 transition-colors">
+                                filteredAndSortedData.map((destination, index) => (
+                                    <tr
+                                        key={destination.changeRequestId ?? `${destination.id}-${index}`}
+                                        className="hover:bg-gray-50 transition-colors"
+                                    >
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <StatusPill status={destination.status} />
                                         </td>
@@ -738,7 +771,11 @@ const DestinationManagement: React.FC = () => {
                                                     { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination.id) },
                                                 ] : [
                                                     { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination.id) },
-                                                    { value: 'pending', label: 'Pending Review', action: () => {
+                                                    { value: 'pending', label: 'Submit for Review', action: () => {
+                                                        console.log('[DestinationManagement] Submit for Review clicked for destination:', {
+                                                            id: destination.id,
+                                                            changeRequestId: destination.changeRequestId,
+                                                        });
                                                         setConfirmAction({
                                                             title: 'Submit for Review',
                                                             message: `Submit draft ID: ${destination.id} for review?`,
@@ -748,7 +785,7 @@ const DestinationManagement: React.FC = () => {
                                                             handler: () => {
                                                                 setIsConfirmVisible(false);
                                                                 setConfirmAction(null);
-                                                                handleSubmitDraft(destination.id);
+                                                                handleSubmitDraft(destination.changeRequestId ?? (typeof destination.id === 'string' ? destination.id : null));
                                                             }
                                                         });
                                                         setIsConfirmVisible(true);

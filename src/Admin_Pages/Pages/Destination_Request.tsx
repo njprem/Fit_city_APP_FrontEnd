@@ -156,7 +156,7 @@ const DestinationRequestPage = () => {
 
   const mapChangeToRequest = (change: DestinationChange): DestinationRequest => ({
     id: change.id,
-    destinationId: change.destination_id ?? "—",
+    destinationId: change.destination_id ?? change.id ?? "—",
     destinationName: change.fields?.name ?? "Untitled destination",
     type: (change.fields?.category as string) ?? (change.fields?.status as string) ?? "Unknown",
     createdBy: change.submitted_by ?? "Unknown",
@@ -164,24 +164,18 @@ const DestinationRequestPage = () => {
     status: mapActionToStatus(change.action),
   });
 
-  const isPendingStatus = (status?: string | null): boolean => {
-    if (!status) return false;
-    const normalized = status.toLowerCase();
-    return normalized === "pending_review" || normalized === "pending" || normalized === "pendingreview";
-  };
-
   const loadRequests = useCallback(
     async (destinationId?: string) => {
       setIsLoading(true);
       setApiError(null);
       try {
         const response = await fetchDestinationChanges({
-          limit: 100,
+          status: "pending_review",
+          limit: 50,
           offset: 0,
           destination_id: destinationId,
         });
-        const pendingChanges = response.changes.filter((change) => isPendingStatus(change.status));
-        setRequests(pendingChanges.map(mapChangeToRequest));
+        setRequests(response.changes.map(mapChangeToRequest));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to load destination requests.";
         setApiError(message);
@@ -553,9 +547,9 @@ const DestinationRequestPage = () => {
                 </td>
               </tr>
             ) : (
-              filteredRequests.map((request) => (
+              filteredRequests.map((request, index) => (
                 <tr
-                  key={request.id}
+                  key={`${request.id}-${index}`}
                   onClick={() => {
                     void loadRequestDetails(request.id);
                   }}
