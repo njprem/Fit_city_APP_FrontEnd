@@ -7,7 +7,7 @@ import {
   type AuthSession,
   type AuthUser,
 } from "./services/auth/authService";
-// import type { Destination } from "./types/destination";
+import type { DestinationByIdPayload, DestinationReviewsPayload } from "./types/destination";
 
 const handleUnauthorized = () => {
   logout();
@@ -159,7 +159,7 @@ export async function confirmPasswordReset(email: string, otp: string, newPasswo
   }
 }
 
-export async function getDestinationById(id: string): Promise<any> {
+export async function getDestinationById(id: string): Promise<DestinationByIdPayload> {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/destinations/${id}`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -170,10 +170,10 @@ export async function getDestinationById(id: string): Promise<any> {
     throw new Error(msg || "Unable to fetch destination details");
   }
 
-  return await res.json();
+  return (await res.json()) as DestinationByIdPayload;
 }
 
-export async function getDestinationReviewById(id: string): Promise<any> {
+export async function getDestinationReviewById(id: string): Promise<DestinationReviewsPayload> {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/destinations/${id}/reviews`, {
     method: "GET",
     headers: { "Content-Type": "application/json" },
@@ -184,7 +184,7 @@ export async function getDestinationReviewById(id: string): Promise<any> {
     throw new Error(msg || "Unable to fetch destination reviews");
   }
 
-  return await res.json();
+  return (await res.json()) as DestinationReviewsPayload;
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -321,6 +321,24 @@ export interface DestinationChangeFields {
   name?: string;
   category?: string;
   status?: string;
+  city?: string;
+  country?: string;
+  description?: string;
+  slug?: string;
+  opening_time?: string;
+  closing_time?: string;
+  contact?: string;
+  latitude?: number;
+  longitude?: number;
+  gallery?: Array<{
+    caption?: string;
+    ordering?: number;
+    url?: string;
+  }>;
+  hero_image_upload_id?: string;
+  hero_image_url?: string;
+  published_hero_image?: string;
+  hard_delete?: boolean;
   [key: string]: unknown;
 }
 
@@ -328,8 +346,16 @@ export interface DestinationChange {
   id: string;
   action: string;
   destination_id?: string;
+  status?: string;
   submitted_by?: string;
   reviewed_by?: string;
+  submitted_at?: string;
+  reviewed_at?: string;
+  draft_version?: number;
+  published_version?: number;
+  review_message?: string;
+  hero_image_temp_key?: string;
+  hero_image_upload_id?: string;
   created_at?: string;
   updated_at?: string;
   fields?: DestinationChangeFields;
@@ -351,6 +377,18 @@ export interface DestinationChangeQuery {
   offset?: number;
 }
 
+export interface DestinationChangeDetailResponse {
+  change_request: DestinationChange & {
+    draft_version?: number;
+    published_version?: number;
+    review_message?: string;
+    submitted_at?: string;
+    submitted_by?: string;
+    hero_image_temp_key?: string;
+    hero_image_upload_id?: string;
+  };
+}
+
 export async function fetchDestinationChanges(
   query: DestinationChangeQuery = {}
 ): Promise<DestinationChangesResponse> {
@@ -366,6 +404,14 @@ export async function fetchDestinationChanges(
 
   const response = await fetchWithAuth(url, { method: "GET" });
   return (await response.json()) as DestinationChangesResponse;
+}
+
+export async function fetchDestinationChangeById(changeId: string): Promise<DestinationChangeDetailResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}`, {
+    method: "GET",
+  });
+
+  return (await response.json()) as DestinationChangeDetailResponse;
 }
 
 export interface ApproveDestinationChangeResponse {

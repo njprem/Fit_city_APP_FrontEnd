@@ -67,19 +67,19 @@ function App() {
         <div>
           <h1 className="text-2xl font-bold mb-8">FitCity</h1>
           <nav className="flex flex-col gap-4">
-            <button className="bg-teal-100 text-teal-900 font-semibold px-4 py-2 rounded text-left">
+            <button  type='button' className="bg-teal-100 text-teal-900 font-semibold px-4 py-2 rounded text-left">
               Dashboard
             </button>
-            <button className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
+            <button type='button' className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
               Destination Management
             </button>
-            <button className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
+            <button type='button' className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
               Destination Request
             </button>
-            <button className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
+            <button type='button' className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
               Reporting
             </button>
-            <button className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
+            <button type='button' className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
               Account Management
             </button>
           </nav>

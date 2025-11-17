@@ -14,6 +14,7 @@ import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRig
 import { addFavorite, removeFavoriteByDestinationId, loadFavorites } from "../../../services/favoritesService";
 import { getToken, getUser } from "../../../services/auth/authService";
 import type { AuthUser } from "../../../services/auth/authService";
+import type { Destination, DestinationResponse, GalleryImage } from "../../../types/destination";
 
 type UIDestination = {
   id?: string;
@@ -32,6 +33,36 @@ type UIDestination = {
   rating?: number | null;
   review_count?: number | null;
   address?: string | null;
+};
+
+type DestinationPayload = Destination & {
+  uuid?: string;
+  openTime?: string;
+  closeTime?: string;
+  phone?: string;
+  tel?: string;
+  lat?: number;
+  lng?: number;
+  heroImageUrl?: string;
+  cover_url?: string;
+  review_count?: number;
+  rating?: number;
+  gallery?: Array<GalleryImage | Record<string, unknown>>;
+  address?: {
+    line?: string;
+    city?: string;
+    country?: string;
+  } | string;
+};
+
+const isDestinationResponsePayload = (
+  payload: DestinationResponse | Destination
+): payload is DestinationResponse => {
+  return typeof payload === "object" && payload !== null && "destination" in payload;
+};
+
+const toDestinationPayload = (payload: DestinationResponse | Destination): DestinationPayload => {
+  return (isDestinationResponsePayload(payload) ? payload.destination : payload) as DestinationPayload;
 };
 
 type ReviewMedia = {
@@ -159,72 +190,98 @@ function findExistingReviewForUser(
   return reviews.find((review) => reviewBelongsToUser(review, profile));
 }
 
-function adaptReviewMedia(mediaList: any): ReviewMedia[] {
+function adaptReviewMedia(mediaList: unknown): ReviewMedia[] {
   if (!Array.isArray(mediaList)) return [];
-  return mediaList
-    .map((m: any, i: number) => ({
-      id: m?.id,
-      url: m?.url ?? m?.image_url ?? m?.path ?? "",
-      ordering: m?.ordering ?? i,
-    }))
-    .filter((m: ReviewMedia) => Boolean(m.url))
-    .sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
+  const normalized: ReviewMedia[] = [];
+  mediaList.forEach((item, index) => {
+    if (!item || typeof item !== "object") return;
+    const record = item as Record<string, unknown>;
+    const url =
+      optionalString(record.url) ??
+      optionalString(record.image_url) ??
+      optionalString(record.path);
+    if (!url) return;
+    normalized.push({
+      id: optionalString(record.id),
+      url,
+      ordering: typeof record.ordering === "number" ? record.ordering : index,
+    });
+  });
+  return normalized.sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
 }
 
-function adaptReviewItems(raw: any): UIReview[] {
-  const reviewItems = Array.isArray(raw?.reviews)
-    ? raw.reviews
+function adaptReviewItems(raw: unknown): UIReview[] {
+  const reviewsArray: Record<string, unknown>[] = Array.isArray(
+    (raw as { reviews?: unknown[] })?.reviews
+  )
+    ? ((raw as { reviews?: unknown[] }).reviews as Record<string, unknown>[])
     : Array.isArray(raw)
-    ? raw
+    ? (raw as Record<string, unknown>[])
     : [];
 
-  return reviewItems
-    .map((r: any) => ({
-      id: r?.id ?? r?.review_id,
-      author_name:
-        r?.reviewer?.display_name ??
-        r?.reviewer?.full_name ??
-        r?.reviewer?.name ??
-        r?.reviewer?.username ??
-        r?.reviewer_name ??
-        r?.display_name ??
-        r?.author_name ??
-        r?.user_name ??
-        r?.author ??
-        "Anonymous",
-      author_username:
-        r?.reviewer?.username ??
-        r?.reviewer?.user_name ??
-        r?.author_username ??
-        r?.user_name ??
-        r?.username,
-      author_id:
-        optionalString(r?.reviewer?.id) ??
-        optionalString(r?.reviewer?.user_id) ??
-        optionalString(r?.user_id) ??
-        optionalString(r?.author_id) ??
-        optionalString(r?.reviewer_id),
-      author_email:
-        optionalString(r?.reviewer?.email) ??
-        optionalString(r?.reviewer?.user_email) ??
-        optionalString(r?.email) ??
-        optionalString(r?.author_email),
-      rating:
-        typeof r?.rating === "number"
-          ? r.rating
-          : typeof r?.stars === "number"
-          ? r.stars
-          : undefined,
-      title: r?.title ?? undefined,
-      content: r?.content ?? r?.comment ?? r?.body ?? r?.text ?? "",
-      // keep legacy 'comment' for backward compatibility with UI usage
-      comment: r?.comment ?? r?.body ?? r?.text ?? r?.content ?? "",
-      posted_at: r?.posted_at ?? r?.created_at ?? r?.date,
-      media: adaptReviewMedia(r?.media),
-    }))
+  return reviewsArray
+    .map((record) => {
+      const reviewer = (record.reviewer as Record<string, unknown>) ?? {};
+      const authorName =
+        optionalString(reviewer.display_name) ??
+        optionalString(reviewer.full_name) ??
+        optionalString(reviewer.name) ??
+        optionalString(reviewer.username) ??
+        optionalString(record.reviewer_name) ??
+        optionalString(record.display_name) ??
+        optionalString(record.author_name) ??
+        optionalString(record.user_name) ??
+        optionalString(record.author) ??
+        "Anonymous";
+      const authorUsername =
+        optionalString(reviewer.username) ??
+        optionalString(reviewer.user_name) ??
+        optionalString(record.author_username) ??
+        optionalString(record.user_name) ??
+        optionalString(record.username);
+      const ratingValue =
+        typeof record.rating === "number"
+          ? record.rating
+          : typeof record.stars === "number"
+          ? record.stars
+          : undefined;
+      const uiReview: UIReview = {
+        id: optionalString(record.id) ?? optionalString(record.review_id),
+        author_name: authorName,
+        author_username: authorUsername,
+        author_id:
+          optionalString(reviewer.id) ??
+          optionalString(reviewer.user_id) ??
+          optionalString(record.user_id) ??
+          optionalString(record.author_id) ??
+          optionalString(record.reviewer_id),
+        author_email:
+          optionalString(reviewer.email) ??
+          optionalString(reviewer.user_email) ??
+          optionalString(record.email) ??
+          optionalString(record.author_email),
+        rating: ratingValue,
+        title: optionalString(record.title) ?? undefined,
+        content:
+          optionalString(record.content) ??
+          optionalString(record.comment) ??
+          optionalString(record.body) ??
+          optionalString(record.text) ??
+          "",
+        comment:
+          optionalString(record.comment) ??
+          optionalString(record.body) ??
+          optionalString(record.text) ??
+          optionalString(record.content) ??
+          "",
+        posted_at: optionalString(record.posted_at) ?? optionalString(record.created_at) ?? optionalString(record.date),
+        media: adaptReviewMedia(record.media),
+      };
+      return uiReview;
+    })
     .filter(
-      (r: UIReview) =>
-        r.title !== undefined || r.content !== undefined || r.comment !== undefined
+      (review) =>
+        review.title !== undefined || review.content !== undefined || review.comment !== undefined
     );
 }
 
@@ -443,15 +500,19 @@ export default function DestinationDetailPage() {
         setLoading(true);
 
         // --- ดึงรายละเอียดสถานที่ ---
-        const rawDest: any = await getDestination(safeId);
-        const destPayload: any = rawDest?.destination ?? rawDest;
+        const rawDest = (await getDestination(safeId)) as DestinationResponse | Destination;
+        const destPayload = toDestinationPayload(rawDest);
+        const addressRecord =
+          typeof destPayload.address === "object" && destPayload.address !== null
+            ? (destPayload.address as { line?: string; city?: string; country?: string })
+            : undefined;
 
         // TODO: map ให้ตรงกับ Swagger ถ้าชื่อฟิลด์ต่าง
         const adapted: UIDestination = {
           id: destPayload?.id ?? destPayload?.uuid,
           name: destPayload?.name,
-          city: destPayload?.city ?? destPayload?.address?.city,
-          country: destPayload?.country ?? destPayload?.address?.country,
+          city: destPayload?.city ?? addressRecord?.city,
+          country: destPayload?.country ?? addressRecord?.country,
           category: destPayload?.category,
           description: destPayload?.description,
           hero_image_url:
@@ -465,16 +526,24 @@ export default function DestinationDetailPage() {
           contact: destPayload?.contact ?? destPayload?.phone ?? destPayload?.tel ?? null,
           latitude: destPayload?.latitude ?? destPayload?.lat ?? null,
           longitude: destPayload?.longitude ?? destPayload?.lng ?? null,
-          gallery: Array.isArray(destPayload?.gallery)
-            ? destPayload.gallery
-                .map((g: any, i: number) => ({
-                  ordering: g?.ordering ?? i,
-                  url: g?.url ?? g?.image_url,
-                  caption: g?.caption ?? null,
-                }))
-                .filter((g: any) => !!g.url)
-                .sort((a: any, b: any) => (a.ordering ?? 0) - (b.ordering ?? 0))
-            : [],
+          gallery: (() => {
+            if (!Array.isArray(destPayload.gallery)) {
+              return [];
+            }
+            const galleryItems: Array<{ ordering?: number; url: string; caption?: string | null }> = [];
+            destPayload.gallery.forEach((item, index) => {
+              if (!item || typeof item !== "object") return;
+              const record = item as Partial<GalleryImage> & Record<string, unknown>;
+              const url = record.url ?? optionalString(record.image_url);
+              if (!url) return;
+              galleryItems.push({
+                ordering: typeof record.ordering === "number" ? record.ordering : index,
+                url,
+                caption: optionalString(record.caption) ?? null,
+              });
+            });
+            return galleryItems.sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
+          })(),
           rating:
             typeof destPayload?.rating === "number"
               ? destPayload.rating
@@ -482,8 +551,10 @@ export default function DestinationDetailPage() {
               ? destPayload.average_rating
               : null,
           review_count:
-            typeof destPayload?.review_count === "number" ? destPayload.review_count : null,
-          address: destPayload?.address?.line ?? destPayload?.address ?? null,
+            typeof destPayload.review_count === "number" ? destPayload.review_count : null,
+          address:
+            addressRecord?.line ??
+            (typeof destPayload.address === "string" ? optionalString(destPayload.address) ?? null : null),
         };
 
         // --- ดึงรีวิว ---
@@ -563,8 +634,9 @@ export default function DestinationDetailPage() {
       setReviewRating(null);
       setReviewTitle("");
       setReviewContent("");
-    } catch (err: any) {
-      setDeleteError(err?.message || "Failed to delete review");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to delete review";
+      setDeleteError(message);
     } finally {
       setReviewDeleting(false);
     }
@@ -598,7 +670,7 @@ export default function DestinationDetailPage() {
             <p className="text-slate-600 mb-6">
               The destination you're looking for doesn't exist or has been removed.
             </p>
-            <button
+            <button type='button'
               onClick={() => navigate("/")}
               className="rounded-full bg-[#016B71] px-6 py-3 font-bold text-white shadow-md hover:bg-[#01585C] transition"
             >
@@ -673,7 +745,7 @@ export default function DestinationDetailPage() {
                       src={image?.url}
                       alt={image?.caption ?? "gallery"}
                       className={`w-full ${
-                        gallery.length === 2 ? "h-[260px] md:h-[300px]" : "h-[128px] md:h-[140px]"
+                        gallery.length === 2 ? "h-[260px] md:h-[300px]" : "h-32 md:h-[140px]"
                       } object-cover rounded-xl cursor-zoom-in`}
                       loading="lazy"
                       onClick={() => {
@@ -690,14 +762,14 @@ export default function DestinationDetailPage() {
           {/* Tabs + Favorite */}
           <div className="flex items-center justify-between border-b border-slate-200">
             <div className="flex items-center gap-8">
-              <button
+              <button type='button'
                 onClick={() => scrollTo(descriptionRef)}
-                className="py-3 text-[15px] font-medium text-slate-900 relative after:absolute after:left-0 after:bottom-0 after:h-[2px] after:w-full after:bg-slate-900"
+                className="py-3 text-[15px] font-medium text-slate-900 relative after:absolute after:left-0 after:bottom-0 after:h-0.5 after:w-full after:bg-slate-900"
                 aria-label="Go to Description"
               >
                 Description
               </button>
-              <button
+              <button type='button'
                 onClick={() => scrollTo(reviewsRef)}
                 className="py-3 text-[15px] font-medium text-slate-500 hover:text-slate-900"
                 aria-label="Go to Reviews"
@@ -1109,8 +1181,9 @@ export default function DestinationDetailPage() {
                       setReviewTitle("");
                       setReviewContent("");
                       setIsReviewOpen(false);
-                    } catch (err: any) {
-                      setReviewError(err?.message || "Failed to submit review");
+                    } catch (err: unknown) {
+                      const message = err instanceof Error ? err.message : "Failed to submit review";
+                      setReviewError(message);
                     } finally {
                       setReviewSubmitting(false);
                     }

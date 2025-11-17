@@ -13,7 +13,7 @@ export default function DestinationSlugRedirect() {
       try {
         // ทางเลือกที่ 1: ถ้ามี endpoint หา id จาก slug โดยตรง
         const data = await api.get(`/api/v1/destinations/slug/${encodeURIComponent(slug)}`);
-        let id = data?.id ?? data?.destination?.id;
+        const id = data?.id ?? data?.destination?.id;
 
         if (id) {
           navigate(`/destination/${id}`, { replace: true });

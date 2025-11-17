@@ -5,6 +5,8 @@ import { getToken, logout } from "./authService";
 import type { 
   DestinationsResponse, 
   DestinationResponse, 
+  DestinationReviewsPayload,
+  ReviewRecord,
   SearchFilters 
 } from "../../types/destination";
 
@@ -106,7 +108,7 @@ export async function getDestination(
 export async function getDestinationReviews(
   id: string,
   signal?: AbortSignal
-): Promise<any> {
+): Promise<DestinationReviewsPayload> {
   const url = `${API_BASE_URL}/api/v1/destinations/${id}/reviews`;
   console.log("[DEBUG] Getting destination reviews:", url);
 
@@ -127,7 +129,7 @@ export async function getDestinationReviews(
       throw new Error(`Failed to get destination reviews: ${response.status} ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as DestinationReviewsPayload;
     console.log("[DEBUG] Destination reviews:", data);
     return data;
   } catch (error) {
@@ -150,7 +152,7 @@ export interface CreateReviewResponse {
     rating_counts?: Record<string, number>;
     total_reviews?: number;
   };
-  review?: any;
+  review?: ReviewRecord;
 }
 
 export async function createDestinationReview(

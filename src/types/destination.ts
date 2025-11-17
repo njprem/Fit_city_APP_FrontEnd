@@ -44,6 +44,8 @@ export interface DestinationResponse {
   destination: Destination;
 }
 
+export type DestinationByIdPayload = DestinationResponse | Destination;
+
 export type SortOption = 
   | "rating_desc" 
   | "rating_asc" 
@@ -58,4 +60,16 @@ export interface SearchFilters {
   minRating?: number;
   maxRating?: number;
   sort?: SortOption;
+}
+
+export type ReviewRecord = Record<string, unknown>;
+
+export interface DestinationReviewsPayload {
+  reviews?: ReviewRecord[];
+  aggregate?: {
+    average_rating?: number;
+    rating_counts?: Record<string, number>;
+    total_reviews?: number;
+  };
+  [key: string]: unknown;
 }
