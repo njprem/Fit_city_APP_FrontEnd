@@ -164,18 +164,24 @@ const DestinationRequestPage = () => {
     status: mapActionToStatus(change.action),
   });
 
+  const isPendingStatus = (status?: string | null): boolean => {
+    if (!status) return false;
+    const normalized = status.toLowerCase();
+    return normalized === "pending_review" || normalized === "pending" || normalized === "pendingreview";
+  };
+
   const loadRequests = useCallback(
     async (destinationId?: string) => {
       setIsLoading(true);
       setApiError(null);
       try {
         const response = await fetchDestinationChanges({
-          status: "pending_review",
-          limit: 50,
+          limit: 100,
           offset: 0,
           destination_id: destinationId,
         });
-        setRequests(response.changes.map(mapChangeToRequest));
+        const pendingChanges = response.changes.filter((change) => isPendingStatus(change.status));
+        setRequests(pendingChanges.map(mapChangeToRequest));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to load destination requests.";
         setApiError(message);
