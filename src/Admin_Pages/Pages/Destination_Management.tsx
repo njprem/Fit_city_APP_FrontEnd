@@ -711,7 +711,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                             <p className="text-sm text-red-600 font-medium">
                                                 Failed to load published destinations.
                                             </p>
-                                            <p className="text-xs text-gray-500 break-words">
+                                            <p className="text-xs text-gray-500 wrap-break-word">
                                                 {publishedError}
                                             </p>
                                             <button
@@ -737,7 +737,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                             <p className="text-sm text-red-600 font-medium">
                                                 Failed to load draft destinations.
                                             </p>
-                                            <p className="text-xs text-gray-500 break-words">
+                                            <p className="text-xs text-gray-500 wrap-break-word">
                                                 {draftError}
                                             </p>
                                             <button
