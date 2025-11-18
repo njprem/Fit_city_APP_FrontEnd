@@ -150,19 +150,25 @@ export default function SearchBar({
     e.preventDefault();
     const trimmed = q.trim();
 
-    if (results.length > 0) {
-      addToSearchHistory(trimmed);
-      const id = results[0].id;
-      if (id) {
-        navigate(`/destination/${id}`);
-      }
-      setShowDropdown(false);
-      setQ("");
-    } else if (trimmed) {
+
+    const active = document.activeElement as HTMLElement | null;
+    const optionFocused =
+      active &&
+      dropdownRef.current?.contains(active) &&
+      active.getAttribute("role") === "option";
+
+    if (optionFocused) {
+      active.click();
+      return;
+    }
+
+    // ignoring the first dropdown result.
+    if (trimmed) {
       addToSearchHistory(trimmed);
       navigate(`/search?q=${encodeURIComponent(trimmed)}`);
       setShowDropdown(false);
       onSearch?.(trimmed);
+      setQ("");
     }
   }
 
