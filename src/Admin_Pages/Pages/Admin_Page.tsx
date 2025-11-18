@@ -15,7 +15,11 @@ export default function Admin_Page() {
   const renderContent = () => {
     switch (activePage) {
       case 'destinations':
-        return <Destination_Management />;
+        return (
+          <Destination_Management
+            onNavigateToRequests={() => setActivePage('requests')}
+          />
+        );
       case 'requests':
         return <Destination_Request />;
       default:
