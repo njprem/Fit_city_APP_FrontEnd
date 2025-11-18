@@ -420,6 +420,11 @@ export interface ApproveDestinationChangeResponse {
   message?: string;
 }
 
+export interface SubmitDestinationChangeResponse {
+  change_request?: DestinationChange;
+  message?: string;
+}
+
 export async function approveDestinationChange(changeId: string): Promise<ApproveDestinationChangeResponse> {
   const response = await fetchWithAuth(
     `${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}/approve`,
@@ -439,6 +444,22 @@ export async function rejectDestinationChange(changeId: string, message: string)
   );
 
   return (await response.json()) as ApproveDestinationChangeResponse;
+}
+
+export async function submitDestinationChange(changeId: string): Promise<SubmitDestinationChangeResponse> {
+  const response = await fetchWithAuth(
+    `${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}/submit`,
+    {
+      method: "POST",
+      body: JSON.stringify({}),
+    }
+  );
+
+  try {
+    return (await response.json()) as SubmitDestinationChangeResponse;
+  } catch {
+    return {};
+  }
 }
 
 export const api = {

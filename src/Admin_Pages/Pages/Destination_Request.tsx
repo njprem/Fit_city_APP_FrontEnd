@@ -156,7 +156,7 @@ const DestinationRequestPage = () => {
 
   const mapChangeToRequest = (change: DestinationChange): DestinationRequest => ({
     id: change.id,
-    destinationId: change.destination_id ?? "—",
+    destinationId: change.destination_id ?? change.id ?? "—",
     destinationName: change.fields?.name ?? "Untitled destination",
     type: (change.fields?.category as string) ?? (change.fields?.status as string) ?? "Unknown",
     createdBy: change.submitted_by ?? "Unknown",
@@ -547,9 +547,9 @@ const DestinationRequestPage = () => {
                 </td>
               </tr>
             ) : (
-              filteredRequests.map((request) => (
+              filteredRequests.map((request, index) => (
                 <tr
-                  key={request.id}
+                  key={`${request.id}-${index}`}
                   onClick={() => {
                     void loadRequestDetails(request.id);
                   }}
