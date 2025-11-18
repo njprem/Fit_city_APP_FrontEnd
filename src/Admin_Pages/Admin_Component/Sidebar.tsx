@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { LayoutDashboard, MapPin, BookOpen, Database, User, LogOut } from "lucide-react";
 // ✅ Path ถูกต้องตามโครงสร้าง: src/Admin_Pages/Admin_Component/ -> src/assets/
 import LogoImage from "../../assets/Logo_fitcity.png"; 
+import { fetchCurrentUser } from "../../api";
 
 // [เพิ่ม] Interface สำหรับ Props ของ Sidebar
 interface SidebarProps {
@@ -25,13 +26,62 @@ const activePillColor = "bg-[#FFFFDE]";
 // ✅ ใช้ font-sans ที่ดูสะอาดตาตามรูปภาพ
 const fontClass = "font-sans";
 
-const Sidebar: React.FC<SidebarProps> = ({ // [แก้ไข] กำหนด Type ให้ Props
-    activeKey = "dashboard", 
-    adminName = "Seren Vale", 
-    adminEmail = "Seren.Vale@gmail.com", 
-    onMenuClick, 
-    onSignOut 
+const Sidebar: React.FC<SidebarProps> = ({
+  activeKey = "dashboard",
+  adminName,
+  adminEmail,
+  onMenuClick,
+  onSignOut,
 }) => {
+  const [resolvedName, setResolvedName] = useState<string | undefined>(adminName);
+  const [resolvedEmail, setResolvedEmail] = useState<string | undefined>(adminEmail);
+
+  useEffect(() => {
+    setResolvedName(adminName);
+  }, [adminName]);
+
+  useEffect(() => {
+    setResolvedEmail(adminEmail);
+  }, [adminEmail]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCurrentUser = async () => {
+      try {
+        const user = await fetchCurrentUser();
+
+        if (cancelled) return;
+
+        const nameFromUser =
+          user.username ??
+          user.full_name ??
+          user.fullName ??
+          user.name ??
+          user.email ??
+          "Admin User";
+
+        const emailFromUser = user.email ?? user.username ?? "";
+
+        setResolvedName((current) => current ?? nameFromUser);
+        setResolvedEmail((current) => current ?? emailFromUser);
+      } catch (error) {
+        console.error("Failed to load current user for sidebar", error);
+      }
+    };
+
+    // หากไม่ได้ส่งค่า adminName / adminEmail มาให้ ใช้ข้อมูลจาก /auth/me
+    if (!adminName || !adminEmail) {
+      loadCurrentUser();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [adminName, adminEmail]);
+
+  const displayName = resolvedName ?? "Admin User";
+  const displayEmail = resolvedEmail ?? "user@example.com";
 
   return (
     <aside className={`w-72 flex flex-col h-screen ${sidebarBgColor} text-white shadow-xl ${fontClass} shrink-0`}>
@@ -82,8 +132,8 @@ const Sidebar: React.FC<SidebarProps> = ({ // [แก้ไข] กำหนด 
           </div>
           
           <div className="flex-1 min-w-0 flex flex-col items-start">
-            <p className="text-sm font-bold truncate">{adminName}</p> 
-            <p className="text-xs text-gray-500 truncate">@{adminEmail}</p> 
+            <p className="text-sm font-bold truncate">{displayName}</p> 
+            <p className="text-xs text-gray-500 truncate">@{displayEmail}</p> 
           </div>
 
           <button type='button'
