@@ -19,7 +19,6 @@ type Props = {
   loading?: boolean;
 };
 
-const CATEGORIES: CategoryFilter[] = ["Culture", "Food", "Nature", "Sport"];
 
 export default function SearchBar({
   placeholder = "Find your places to go",
@@ -36,7 +35,7 @@ export default function SearchBar({
   const [isFocused, setIsFocused] = useState(false);
 
   // 🆕 Single filter (category or popularity)
-  const [selectedFilter, setSelectedFilter] = useState<string>("");
+  const [selectedFilter] = useState<string>("");
 
   const inputId = useId();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -316,7 +315,7 @@ export default function SearchBar({
                   <img
                     src={destination.hero_image_url}
                     alt=""
-                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                    className="w-16 h-16 object-cover rounded-lg shrink-0"
                   />
                 )}
                 <div className="flex-1 min-w-0">
