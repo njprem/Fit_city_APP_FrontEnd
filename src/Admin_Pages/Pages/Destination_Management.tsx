@@ -8,35 +8,23 @@ import DestinationForm from '../Admin_Component/Destination_Form';
 import { emptyDestinationInitialData, mockEditDestinationData, mockViewDestinationData, type DestinationFormData } from '../Admin_Component/destinationFormData';
 import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
 import ActionMenu from '../Admin_Component/ActionMenu';
+import { fetchDestinationChanges, submitDestinationChange, type DestinationChange } from '../../api';
+
+interface DestinationManagementProps {
+    onNavigateToRequests?: () => void;
+}
 
 
 // #region Mock Data & Logic
 interface Destination {
-    id: number;
+    id: number | string;
     status: StatusType;
     name: string;
     type: string;
     createdBy: string;
     adminName: string;
+    changeRequestId?: string;
 }
-
-const destinationData: Destination[] = [
-    { id: 1, status: 'Active', name: 'France: Hands-On Cooking Class with Pâtisserie Chef Noémie', type: 'Food', createdBy: 'S123456', adminName: 'Liora Nyen' },
-    { id: 5, status: 'Active', name: 'Iceland: Northern Lights & Glacier Hike', type: 'Nature', createdBy: 'S123459', adminName: 'John Doe' },
-    { id: 3, status: 'Active', name: 'New York: Central Park Photography Workshop', type: 'Sightseeing', createdBy: 'S123457', adminName: 'Alex Chen' },
-    { id: 4, status: 'Inactive', name: 'Rome: Authentic Pasta Making', type: 'Food', createdBy: 'S123458', adminName: 'Sarah Bell' },
-    { id: 2, status: 'Inactive', name: 'Tokyo: Senso-ji Temple Tour and Matcha Tasting', type: 'Culture', createdBy: 'S123456', adminName: 'Liora Nyen' },
-    { id: 6, status: 'Active', name: 'Thailand: Floating Market Culinary Tour', type: 'Food', createdBy: 'S123460', adminName: 'Pim Kanda' },
-];
-
-// Draft dataset (uses different status values)
-const draftDestinationData: Destination[] = [
-    { id: 101, status: 'Add', name: 'Kyoto: Tea Ceremony Experience', type: 'Culture', createdBy: 'S223456', adminName: 'Haruto Tanaka' },
-    { id: 102, status: 'Edit', name: 'Bali: Ubud Rice Terraces Walk', type: 'Sightseeing', createdBy: 'S223457', adminName: 'Ayu Putri' },
-    { id: 103, status: 'Delete', name: 'Barcelona: Gaudí Architecture Tour', type: 'Sightseeing', createdBy: 'S223458', adminName: 'Carlos Ruiz' },
-    { id: 104, status: 'Reject', name: 'Seoul: Night Market Food Crawl', type: 'Food', createdBy: 'S223459', adminName: 'Minji Park' },
-    { id: 105, status: 'Add', name: 'Swiss Alps: Beginner Ski Lesson', type: 'Sport', createdBy: 'S223460', adminName: 'Lena Müller' },
-];
 
 // ** Updated Type Options **
 const typeOptions = [
@@ -79,38 +67,175 @@ const processDestinations = (data: Destination[], searchTerm: string, sortBy: st
         switch (sortBy) {
             case 'name_asc': return a.name.localeCompare(b.name);
             case 'name_desc': return b.name.localeCompare(a.name);
-            case 'id_low': return a.id - b.id;
-            case 'id_high': return b.id - a.id;
+            case 'id_low': return String(a.id).localeCompare(String(b.id), undefined, { numeric: true, sensitivity: 'base' });
+            case 'id_high': return String(b.id).localeCompare(String(a.id), undefined, { numeric: true, sensitivity: 'base' });
             default: return 0;
         }
     });
 
     return result;
 };
+
+const deriveStatusFromChange = (change: DestinationChange): StatusType => {
+    const fieldStatus = typeof change.fields?.status === 'string' ? change.fields.status.toLowerCase() : '';
+    if (change.action === 'delete' || change.fields?.hard_delete || fieldStatus === 'inactive') {
+        return 'Inactive';
+    }
+    return 'Active';
+};
+
+const mapDraftStatus = (change: DestinationChange): StatusType => {
+    const changeStatus = (change.status ?? '').toLowerCase();
+    if (changeStatus === 'rejected') {
+        return 'Reject';
+    }
+    const action = (change.action ?? '').toLowerCase();
+    switch (action) {
+        case 'create':
+            return 'Add';
+        case 'delete':
+            return 'Delete';
+        case 'update':
+        case 'edit':
+            return 'Edit';
+        default:
+            return 'Edit';
+    }
+};
+
+const adaptApprovedChangeToDestination = (change: DestinationChange): Destination => {
+    const fields = change.fields ?? {};
+    const name =
+        typeof fields.name === 'string' && fields.name.trim()
+            ? fields.name
+            : `Destination ${change.destination_id ?? change.id}`;
+    const typeLabel =
+        typeof fields.category === 'string' && fields.category.trim() ? fields.category : 'Unknown';
+
+    return {
+        id: change.destination_id ?? change.id,
+        changeRequestId: change.id,
+        status: deriveStatusFromChange(change),
+        name,
+        type: typeLabel,
+        createdBy: change.submitted_by ?? 'Unknown',
+        adminName: change.reviewed_by ?? '—',
+    };
+};
+
+const adaptDraftChangeToDestination = (change: DestinationChange): Destination => {
+    const fields = change.fields ?? {};
+    const name =
+        typeof fields.name === 'string' && fields.name.trim()
+            ? fields.name
+            : `Draft ${change.destination_id ?? change.id}`;
+    const typeLabel =
+        typeof fields.category === 'string' && fields.category.trim() ? fields.category : 'Unknown';
+
+    return {
+        id: change.id,
+        changeRequestId: change.id,
+        status: mapDraftStatus(change),
+        name,
+        type: typeLabel,
+        createdBy: change.submitted_by ?? 'Unknown',
+        adminName: change.reviewed_by ?? '—',
+    };
+};
 // #endregion Mock Data & Logic
 
 
-const DestinationManagement: React.FC = () => {
-   const [searchTerm, setSearchTerm] = useState('');
+const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigateToRequests }) => {
+    const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('');
     const [filterType, setFilterType] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
     const [activeTab, setActiveTab] = useState<'published' | 'draft'>('published');
-    const [publishedList, setPublishedList] = useState<Destination[]>(destinationData);
-    const [draftList, setDraftList] = useState<Destination[]>(draftDestinationData);
+    const [publishedList, setPublishedList] = useState<Destination[]>([]);
+    const [draftList, setDraftList] = useState<Destination[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'view'>('list'); 
     const [formDataForForm, setFormDataForForm] = useState<DestinationFormData | null>(null); // Data passed to DestinationForm
     const [isConfirmVisible, setIsConfirmVisible] = useState(false);
     const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; handler: () => void; confirmText?: string; cancelText?: string; confirmButtonClass?: string } | null>(null);
     const [isSortOpen, setIsSortOpen] = useState(false); 
     const [isFilterOpen, setIsFilterOpen] = useState(false); 
-    const [isOpenActionMenuId, setIsOpenActionMenuId] = useState<number | null>(null); // <<-- [แก้ไขที่ 14] State สำหรับ Action Menu
+    const [isOpenActionMenuId, setIsOpenActionMenuId] = useState<Destination['id'] | null>(null); // <<-- [แก้ไขที่ 14] State สำหรับ Action Menu
+    const [isLoadingPublished, setIsLoadingPublished] = useState(false);
+    const [publishedError, setPublishedError] = useState<string | null>(null);
+    const [publishedReloadToken, setPublishedReloadToken] = useState(0);
+    const [isLoadingDraft, setIsLoadingDraft] = useState(false);
+    const [draftError, setDraftError] = useState<string | null>(null);
+    const [draftReloadToken, setDraftReloadToken] = useState(0);
 
     const sortRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 15] Ref สำหรับ Sort
     const filterRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 16] Ref สำหรับ Filter
 
     const handleSearch = () => {
         console.log(`Search button clicked for: ${searchTerm}`);
+    };
+
+    const handleRetryPublished = () => {
+        setPublishedReloadToken(prev => prev + 1);
+    };
+
+    const handleRetryDrafts = () => {
+        setDraftReloadToken(prev => prev + 1);
+    };
+
+    const handleSubmitDraft = async (changeId?: string | null) => {
+        console.log('[DestinationManagement] handleSubmitDraft called with changeId:', changeId);
+        const effectiveId = typeof changeId === 'string' && changeId.trim() ? changeId : undefined;
+
+        if (!effectiveId) {
+            console.error('[DestinationManagement] Cannot submit draft without a valid change request ID', { changeId });
+            setConfirmAction({
+                title: 'Submission Failed',
+                message: 'This draft cannot be submitted because it does not have a change request ID yet.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+            return;
+        }
+        try {
+            console.log('[DestinationManagement] Submitting draft to backend with ID:', effectiveId);
+            const response = await submitDestinationChange(effectiveId);
+            const submittedId = response.change_request?.destination_id ?? response.change_request?.id ?? effectiveId;
+            const serverMessage = response.message || `Destination ${submittedId} has been submitted for review.`;
+            setConfirmAction({
+                title: 'Submitted for Review',
+                message: serverMessage,
+                confirmText: 'OK',
+                confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                    setDraftReloadToken(prev => prev + 1);
+                    if (onNavigateToRequests) {
+                        console.log('[DestinationManagement] Navigating to Destination Request page after submit');
+                        onNavigateToRequests();
+                    }
+                }
+            });
+            setIsConfirmVisible(true);
+        } catch (error) {
+            console.error('[DestinationManagement] Failed to submit draft change request', error);
+            setConfirmAction({
+                title: 'Submission Failed',
+                message: error instanceof Error ? error.message : 'Unable to submit draft for review.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+        }
     };
 
 // [แก้ไขที่ 17] useEffect สำหรับ Click Outside (Sort/Filter)
@@ -134,6 +259,81 @@ const DestinationManagement: React.FC = () => {
     useEffect(() => {
         setFilterStatus('');
     }, [activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== 'published') {
+            return;
+        }
+
+        let isCancelled = false;
+
+        const fetchApprovedDestinations = async () => {
+            setIsLoadingPublished(true);
+            setPublishedError(null);
+            try {
+                const response = await fetchDestinationChanges({ status: 'approved', limit: 100, offset: 0 });
+                if (isCancelled) {
+                    return;
+                }
+                const mapped = response.changes.map(adaptApprovedChangeToDestination);
+                setPublishedList(mapped);
+            } catch (error) {
+                if (isCancelled) {
+                    return;
+                }
+                console.error('Failed to load published destinations', error);
+                setPublishedError(error instanceof Error ? error.message : 'Unable to load published destinations');
+                setPublishedList([]);
+            } finally {
+                if (!isCancelled) {
+                    setIsLoadingPublished(false);
+                }
+            }
+        };
+
+        fetchApprovedDestinations();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [activeTab, publishedReloadToken]);
+
+    useEffect(() => {
+        if (activeTab !== 'draft') {
+            return;
+        }
+
+        let isCancelled = false;
+
+        const fetchDraftDestinations = async () => {
+            setIsLoadingDraft(true);
+            setDraftError(null);
+            try {
+                const response = await fetchDestinationChanges({ status: 'draft', limit: 100, offset: 0 });
+                if (isCancelled) {
+                    return;
+                }
+                setDraftList(response.changes.map(adaptDraftChangeToDestination));
+            } catch (error) {
+                if (isCancelled) {
+                    return;
+                }
+                console.error('Failed to load draft destinations', error);
+                setDraftError(error instanceof Error ? error.message : 'Unable to load draft destinations');
+                setDraftList([]);
+            } finally {
+                if (!isCancelled) {
+                    setIsLoadingDraft(false);
+                }
+            }
+        };
+
+        fetchDraftDestinations();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [activeTab, draftReloadToken]);
 
     // Ensure form view is visible when switching from list
     useEffect(() => {
@@ -165,7 +365,7 @@ const DestinationManagement: React.FC = () => {
     };
 
     // [แก้ไขที่ 19] ฟังก์ชันจัดการการเปิด-ปิด Action Menu
-    const handleToggleActionMenu = (id: number) => {
+    const handleToggleActionMenu = (id: Destination['id']) => {
         setIsSortOpen(false); // ปิด Sort
         setIsFilterOpen(false); // ปิด Filter
         setIsOpenActionMenuId(prevId => prevId === id ? null : id); // Toggle หรือเปิดใหม่
@@ -182,7 +382,7 @@ const DestinationManagement: React.FC = () => {
     }, [dataSource, searchTerm, sortBy, filterType, filterStatus, activeTab]);
 
 
-    const handleViewDetail = (id: number) => {
+    const handleViewDetail = (id: Destination['id']) => {
         // Find in both Published and Draft datasets (state)
         const existingData = [...publishedList, ...draftList].find(d => d.id === id);
         if (existingData) {
@@ -203,10 +403,10 @@ const DestinationManagement: React.FC = () => {
         }
     };
 
-    const handleEditDetail = (id: number) => {
+    const handleEditDetail = (id: Destination['id']) => {
         // Use mockEditDestinationData if ID matches, otherwise create generic mock from available record in state
         const existingData = [...publishedList, ...draftList].find(d => d.id === id);
-        if (id === 1) {
+        if (String(id) === '1') {
             setFormDataForForm(mockEditDestinationData);
         } else if (existingData) {
             setFormDataForForm({
@@ -247,7 +447,7 @@ const DestinationManagement: React.FC = () => {
         setViewMode('edit');
     };
 
-    const handleDeleteDestination = (id: number) => {
+    const handleDeleteDestination = (id: Destination['id']) => {
         setConfirmAction({
             title: 'Confirm Delete Destination',
             message: `Are you sure you want to delete Destination ID: ${id}? This action cannot be undone.`,
@@ -290,10 +490,14 @@ const DestinationManagement: React.FC = () => {
                 console.log('Image Files to upload:', imageFiles);
                 if (viewMode === 'add') {
                     // Generate new ID and push to draft list with status 'Add'
-                    const allIds = [...publishedList, ...draftList].map(d => d.id);
-                    const newId = (allIds.length ? Math.max(...allIds) : 0) + 1;
+                    const numericIds = [...publishedList, ...draftList]
+                        .map(d => (typeof d.id === 'number' ? d.id : Number.parseInt(String(d.id), 10)))
+                        .filter((value): value is number => Number.isFinite(value));
+                    const newId = (numericIds.length ? Math.max(...numericIds) : 0) + 1;
+                    const localChangeId = `local-draft-${newId}-${Date.now()}`;
                     const newDraft: Destination = {
                         id: newId,
+                        changeRequestId: localChangeId,
                         status: 'Add',
                         name: data.name,
                         type: data.type || 'Sightseeing',
@@ -339,7 +543,7 @@ const DestinationManagement: React.FC = () => {
     };
     
     // Handler for delete button on the form (which triggers the popup)
-    const handleFormDelete = (id: number) => {
+    const handleFormDelete = (id: Destination['id']) => {
         handleDeleteDestination(id);
     }
     
@@ -493,10 +697,65 @@ const DestinationManagement: React.FC = () => {
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">ACTIONS</th>
                             </tr>
                         </thead>
-                       <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredAndSortedData.length > 0 ? (
-                                filteredAndSortedData.map((destination) => (
-                                    <tr key={destination.id} className="hover:bg-gray-50 transition-colors">
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {activeTab === 'published' && isLoadingPublished ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500 text-lg">
+                                        Loading published destinations...
+                                    </td>
+                                </tr>
+                            ) : activeTab === 'published' && publishedError ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                                        <div className="space-y-3">
+                                            <p className="text-sm text-red-600 font-medium">
+                                                Failed to load published destinations.
+                                            </p>
+                                            <p className="text-xs text-gray-500 wrap-break-word">
+                                                {publishedError}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={handleRetryPublished}
+                                                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                                            >
+                                                Retry
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : activeTab === 'draft' && isLoadingDraft ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500 text-lg">
+                                        Loading draft destinations...
+                                    </td>
+                                </tr>
+                            ) : activeTab === 'draft' && draftError ? (
+                                <tr>
+                                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                                        <div className="space-y-3">
+                                            <p className="text-sm text-red-600 font-medium">
+                                                Failed to load draft destinations.
+                                            </p>
+                                            <p className="text-xs text-gray-500 wrap-break-word">
+                                                {draftError}
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={handleRetryDrafts}
+                                                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                                            >
+                                                Retry
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : filteredAndSortedData.length > 0 ? (
+                                filteredAndSortedData.map((destination, index) => (
+                                    <tr
+                                        key={destination.changeRequestId ?? `${destination.id}-${index}`}
+                                        className="hover:bg-gray-50 transition-colors"
+                                    >
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <StatusPill status={destination.status} />
                                         </td>
@@ -512,15 +771,21 @@ const DestinationManagement: React.FC = () => {
                                                     { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination.id) },
                                                 ] : [
                                                     { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination.id) },
-                                                    { value: 'pending', label: 'Pending Review', action: () => {
+                                                    { value: 'pending', label: 'Submit for Review', action: () => {
+                                                        console.log('[DestinationManagement] Submit for Review clicked for destination:', {
+                                                            id: destination.id,
+                                                            changeRequestId: destination.changeRequestId,
+                                                        });
                                                         setConfirmAction({
                                                             title: 'Submit for Review',
-                                                            message: `Draft ID: ${destination.id} has been submitted for review.`,
-                                                            confirmText: 'OK',
+                                                            message: `Submit draft ID: ${destination.id} for review?`,
+                                                            confirmText: 'Submit',
+                                                            cancelText: 'Cancel',
                                                             confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
                                                             handler: () => {
                                                                 setIsConfirmVisible(false);
                                                                 setConfirmAction(null);
+                                                                handleSubmitDraft(destination.changeRequestId ?? (typeof destination.id === 'string' ? destination.id : null));
                                                             }
                                                         });
                                                         setIsConfirmVisible(true);
