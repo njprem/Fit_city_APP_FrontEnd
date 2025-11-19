@@ -473,7 +473,7 @@ export const LandingPage = () => {
             </div>
 
             <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-4">
-              <div className="flex flex-wrap justify-center gap-3 rounded-[32px] bg-white/90 px-4 py-2 shadow-2xl backdrop-blur">
+              <div className="flex flex-wrap justify-center gap-8 rounded-[30px] bg-white/90 px-4 py-2 shadow-2xl backdrop-blur">
                 {CATEGORY_TABS.map((tab) => {
                   const isActive = tab.value === activeCategory;
                   return (
@@ -481,7 +481,7 @@ export const LandingPage = () => {
                       key={tab.value}
                       type="button"
                       onClick={() => setActiveCategory(tab.value)}
-                      className={`flex items-center gap-2 rounded-[26px] px-5 py-3 text-base font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#016B71] ${
+                      className={`flex items-center gap-4 rounded-[26px] px-12 py-3 text-base font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#016B71] ${
                         isActive
                           ? "bg-[#FFFDD8] text-[#016B71]"
                           : "bg-[#016B71] text-white hover:bg-[#01585C]"
