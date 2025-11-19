@@ -5,10 +5,10 @@ import SearchBar from '../Admin_Component/SearchBar';
 import Dropdown from '../Admin_Component/Dropdown';
 import ConfirmPopup from '../Admin_Component/Confirm_Popup';
 import DestinationForm from '../Admin_Component/Destination_Form';
-import { emptyDestinationInitialData, mockEditDestinationData, mockViewDestinationData, type DestinationFormData } from '../Admin_Component/destinationFormData';
+import { emptyDestinationInitialData, type DestinationFormData } from '../Admin_Component/destinationFormData';
 import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
 import ActionMenu from '../Admin_Component/ActionMenu';
-import { fetchDestinationChanges, submitDestinationChange, type DestinationChange } from '../../api';
+import { createDestinationChange, fetchDestinationChangeById, fetchDestinationChanges, submitDestinationChange, updateDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, type DestinationChange, type DestinationChangeDetailResponse } from '../../api';
 
 interface DestinationManagementProps {
     onNavigateToRequests?: () => void;
@@ -24,6 +24,7 @@ interface Destination {
     createdBy: string;
     adminName: string;
     changeRequestId?: string;
+    details?: DestinationChange['fields'];
 }
 
 // ** Updated Type Options **
@@ -103,6 +104,39 @@ const mapDraftStatus = (change: DestinationChange): StatusType => {
     }
 };
 
+const toNumberOrNull = (value: unknown): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return null;
+};
+
+const collectImageSources = (fields?: DestinationChange['fields']): string[] => {
+    if (!fields) return [];
+    const images = new Set<string>();
+    const pushIfValid = (candidate?: unknown) => {
+        if (typeof candidate === 'string') {
+            const trimmed = candidate.trim();
+            if (trimmed) images.add(trimmed);
+        }
+    };
+
+    pushIfValid(fields.hero_image_url as string | undefined);
+    pushIfValid(fields.published_hero_image as string | undefined);
+
+    if (Array.isArray((fields as any).gallery)) {
+        (fields as any).gallery.forEach((item: any) => {
+            if (item && typeof item === 'object' && 'url' in item) {
+                pushIfValid((item as any).url);
+            }
+        });
+    }
+
+    return Array.from(images);
+};
+
 const adaptApprovedChangeToDestination = (change: DestinationChange): Destination => {
     const fields = change.fields ?? {};
     const name =
@@ -120,6 +154,7 @@ const adaptApprovedChangeToDestination = (change: DestinationChange): Destinatio
         type: typeLabel,
         createdBy: change.submitted_by ?? 'Unknown',
         adminName: change.reviewed_by ?? '—',
+        details: change.fields,
     };
 };
 
@@ -140,6 +175,7 @@ const adaptDraftChangeToDestination = (change: DestinationChange): Destination =
         type: typeLabel,
         createdBy: change.submitted_by ?? 'Unknown',
         adminName: change.reviewed_by ?? '—',
+        details: change.fields,
     };
 };
 // #endregion Mock Data & Logic
@@ -166,6 +202,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const [isLoadingDraft, setIsLoadingDraft] = useState(false);
     const [draftError, setDraftError] = useState<string | null>(null);
     const [draftReloadToken, setDraftReloadToken] = useState(0);
+    const [isDetailLoading, setIsDetailLoading] = useState(false);
 
     const sortRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 15] Ref สำหรับ Sort
     const filterRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 16] Ref สำหรับ Filter
@@ -382,84 +419,110 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     }, [dataSource, searchTerm, sortBy, filterType, filterStatus, activeTab]);
 
 
-    const handleViewDetail = (id: Destination['id']) => {
-        // Find in both Published and Draft datasets (state)
-        const existingData = [...publishedList, ...draftList].find(d => d.id === id);
-        if (existingData) {
-            // For view mode, we need full data. Using mock for now.
-            setFormDataForForm({
-                ...mockViewDestinationData, // Use a comprehensive mock for view
-                id: existingData.id,
-                name: existingData.name,
-                type: existingData.type,
-                // Assume other fields are filled by a backend lookup
-            });
-            setIsOpenActionMenuId(null);
-            setIsSortOpen(false);
-            setIsFilterOpen(false);
-            setViewMode('view');
-        } else {
-            console.error(`Destination with ID ${id} not found for view.`);
-        }
-    };
-
-    const handleEditDetail = (id: Destination['id']) => {
-        // Use mockEditDestinationData if ID matches, otherwise create generic mock from available record in state
-        const existingData = [...publishedList, ...draftList].find(d => d.id === id);
-        if (String(id) === '1') {
-            setFormDataForForm(mockEditDestinationData);
-        } else if (existingData) {
-            setFormDataForForm({
-                ...emptyDestinationInitialData,
-                id: existingData.id,
-                name: existingData.name,
-                description: 'Description for mock edit.',
-                contact: '0812345678',
-                country: 'Thailand',
-                city: 'Bangkok',
-                latitude: 13.75,
-                longitude: 100.5,
-                openingTime: '08:00',
-                closingTime: '17:00',
-                type: existingData.type || 'Sightseeing',
-                images: ['https://via.placeholder.com/150/FF5733/FFFFFF?text=MockEdit'],
-            });
-        } else {
-            setFormDataForForm({
-                ...emptyDestinationInitialData,
-                id: id,
-                name: `Destination ID: ${id} (Mock Edit Data)`,
-                description: 'Description for mock edit.',
-                contact: '0812345678',
-                country: 'Thailand',
-                city: 'Bangkok',
-                latitude: 13.75,
-                longitude: 100.5,
-                openingTime: '08:00',
-                closingTime: '17:00',
-                type: 'Sightseeing',
-                images: ['https://via.placeholder.com/150/FF5733/FFFFFF?text=MockEdit'],
-            });
-        }
-        setIsOpenActionMenuId(null);
+    const resetOverlays = () => {
         setIsSortOpen(false);
         setIsFilterOpen(false);
-        setViewMode('edit');
+        setIsOpenActionMenuId(null);
+    };
+
+    const buildFormDataForAction = (destination?: Destination): DestinationFormData => {
+        const details = (destination?.details ?? {}) as Record<string, unknown>;
+        const ensureString = (value: unknown, fallback = ''): string =>
+            typeof value === 'string' ? value : fallback;
+        const ensureNumber = (value: unknown): number | null => {
+            if (typeof value === 'number' && Number.isFinite(value)) return value;
+            if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
+                return Number(value);
+            }
+            return null;
+        };
+
+        const galleryFromFields =
+            Array.isArray((details as any).gallery)
+                ? ((details as any).gallery as Array<{ url?: string }>)
+                    .map(g => g?.url)
+                    .filter(Boolean) as string[]
+                : [];
+
+        const heroImage = ensureString(details.hero_image_url, '');
+        const images: string[] = [];
+        if (heroImage) images.push(heroImage);
+        galleryFromFields.forEach((u) => images.push(u));
+
+        return {
+            ...emptyDestinationInitialData,
+            id: destination?.id ?? null,
+            name: ensureString(details.name, destination?.name ?? ''),
+            type: ensureString(details.category, destination?.type ?? ''),
+            contact: ensureString(details.contact, ''),
+            country: ensureString(details.country, ''),
+            city: ensureString(details.city, ''),
+            latitude: ensureNumber(details.latitude),
+            longitude: ensureNumber(details.longitude),
+            openingTime: ensureString(details.opening_time, emptyDestinationInitialData.openingTime),
+            closingTime: ensureString(details.closing_time, emptyDestinationInitialData.closingTime),
+            description: ensureString(details.description, ''),
+            images,
+            imageFiles: [],
+        };
+    };
+
+    const mapFormToDetails = (data: DestinationFormData): DestinationChange['fields'] => ({
+        name: data.name,
+        category: data.type,
+        contact: data.contact,
+        country: data.country,
+        city: data.city,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        opening_time: data.openingTime,
+        closing_time: data.closingTime,
+        description: data.description,
+        hero_image_url: data.images?.[0],
+        published_hero_image: data.images?.[0],
+        gallery: data.images?.map((url, index) => ({ url, ordering: index })) ?? [],
+    });
+
+    const mapChangeDetailToFormData = (change: DestinationChangeDetailResponse['change_request']): DestinationFormData => {
+        const fields = change.fields ?? {};
+        const base = { ...emptyDestinationInitialData };
+
+        return {
+            ...base,
+            id: change.destination_id ?? change.id ?? base.id,
+            name: typeof fields.name === 'string' ? fields.name : base.name,
+            type: typeof fields.category === 'string' ? fields.category : base.type,
+            contact: typeof fields.contact === 'string' ? fields.contact : base.contact,
+            country: typeof fields.country === 'string' ? fields.country : base.country,
+            city: typeof fields.city === 'string' ? fields.city : base.city,
+            latitude: toNumberOrNull((fields as any).latitude) ?? base.latitude,
+            longitude: toNumberOrNull((fields as any).longitude) ?? base.longitude,
+            openingTime: typeof (fields as any).opening_time === 'string' ? (fields as any).opening_time : base.openingTime,
+            closingTime: typeof (fields as any).closing_time === 'string' ? (fields as any).closing_time : base.closingTime,
+            description: typeof fields.description === 'string' ? fields.description : base.description,
+            images: collectImageSources(fields),
+            imageFiles: [],
+        };
+    };
+
+    const openForm = (mode: 'add' | 'edit' | 'view', destination?: Destination) => {
+        setFormDataForForm(mode === 'add' ? emptyDestinationInitialData : buildFormDataForAction(destination));
+        setViewMode(mode);
+        resetOverlays();
     };
 
     const handleDeleteDestination = (id: Destination['id']) => {
+        const target = [...publishedList, ...draftList].find(d => d.id === id);
         setConfirmAction({
             title: 'Confirm Delete Destination',
-            message: `Are you sure you want to delete Destination ID: ${id}? This action cannot be undone.`,
+            message: target ? `Are you sure you want to delete "${target.name}" (ID: ${id})? This action cannot be undone.` : `Are you sure you want to delete Destination ID: ${id}? This action cannot be undone.`,
             confirmText: 'Delete',
             cancelText: 'Cancel',
             confirmButtonClass: 'bg-red-600 hover:bg-red-700',
             handler: () => {
-                console.log(`Deleting Destination ID: ${id}`);
-                // Remove from the appropriate list
+                // TODO: replace with API delete call, then refresh lists
                 setPublishedList(prev => prev.filter(d => d.id !== id));
                 setDraftList(prev => prev.filter(d => d.id !== id));
-                // After successful deletion:
                 setConfirmAction({
                     title: 'Deletion Successful!',
                     message: `Destination ID: ${id} has been successfully deleted.`,
@@ -470,59 +533,132 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                         setConfirmAction(null);
                         setViewMode('list'); 
                         setFormDataForForm(null);
-                        // Stay on current tab
                     }
                 });
             }
         });
         setIsConfirmVisible(true);
+        resetOverlays();
+    };
+
+    const handleRowAction = async (action: 'view' | 'edit', destination: Destination) => {
+        resetOverlays();
+        // Optimistically open with list data so the form shows immediately
+        setFormDataForForm(buildFormDataForAction(destination));
+        setViewMode(action);
+
+        const changeId = destination.changeRequestId ?? destination.id;
+        if (!changeId) {
+            setConfirmAction({
+                title: 'Unable to Open',
+                message: 'No change request ID found for this destination.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+            return;
+        }
+
+        setIsDetailLoading(true);
+        try {
+            const detail = await fetchDestinationChangeById(String(changeId));
+            const formData = mapChangeDetailToFormData(detail.change_request);
+            setFormDataForForm(formData);
+        } catch (error) {
+            console.error('Failed to load destination detail', error);
+            setConfirmAction({
+                title: 'Failed to Load Detail',
+                message: error instanceof Error ? error.message : 'Unable to load destination detail.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+        } finally {
+            setIsDetailLoading(false);
+        }
+    };
+
+    const handleAddNew = () => {
+        openForm('add');
     };
 
 
     const handleSaveForm = (data: DestinationFormData, imageFiles: File[]) => {
+        const detailsFromForm = mapFormToDetails(data);
+
+        const uploadImagesIfNeeded = async (changeId: string) => {
+            if (!imageFiles || imageFiles.length === 0) return;
+            const [hero, ...gallery] = imageFiles;
+            if (hero) {
+                await uploadDestinationHeroImage(changeId, hero);
+            }
+            if (gallery.length > 0) {
+                await uploadDestinationGallery(changeId, gallery);
+            }
+        };
+
         setConfirmAction({
             title: viewMode === 'add' ? 'Confirm Add New Destination' : 'Confirm Save Changes',
             message: viewMode === 'add' ? 'Are you sure you want to add this destination? Please ensure all details are correct.' : `Are you sure you want to save changes to ID ${data.id}?`,
             confirmText: viewMode === 'add' ? 'Add Destination' : 'Save Changes',
             confirmButtonClass: 'bg-green-500 hover:bg-green-600',
             handler: () => {
-                console.log(`${viewMode === 'add' ? 'Added' : 'Saved changes to'} Destination: ${data.name}`, data);
-                console.log('Image Files to upload:', imageFiles);
-                if (viewMode === 'add') {
-                    // Generate new ID and push to draft list with status 'Add'
-                    const numericIds = [...publishedList, ...draftList]
-                        .map(d => (typeof d.id === 'number' ? d.id : Number.parseInt(String(d.id), 10)))
-                        .filter((value): value is number => Number.isFinite(value));
-                    const newId = (numericIds.length ? Math.max(...numericIds) : 0) + 1;
-                    const localChangeId = `local-draft-${newId}-${Date.now()}`;
-                    const newDraft: Destination = {
-                        id: newId,
-                        changeRequestId: localChangeId,
-                        status: 'Add',
-                        name: data.name,
-                        type: data.type || 'Sightseeing',
-                        createdBy: 'S000000',
-                        adminName: 'Admin',
-                    };
-                    setDraftList(prev => [newDraft, ...prev]);
-                    setActiveTab('draft');
-                } else if (viewMode === 'edit' && data.id !== null) {
-                    // Apply simple mock update: reflect name/type to whichever list contains it
-                    setPublishedList(prev => prev.map(d => d.id === data.id ? { ...d, name: data.name, type: data.type } : d));
-                    setDraftList(prev => prev.map(d => d.id === data.id ? { ...d, name: data.name, type: data.type, status: 'Edit' } : d));
-                }
-                setConfirmAction({
-                    title: 'Success!',
-                    message: `${data.name} has been successfully ${viewMode === 'add' ? 'added to Draft' : 'updated'}.`,
-                    confirmText: 'OK',
-                    confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
-                    handler: () => {
+                (async () => {
+                    try {
+                        if (viewMode === 'add') {
+                            const res = await createDestinationChange({
+                                action: 'create',
+                                fields: detailsFromForm,
+                            });
+                            const changeId = res.change_request.id;
+                            await uploadImagesIfNeeded(changeId);
+                            setDraftReloadToken(prev => prev + 1);
+                            setActiveTab('draft');
+                        } else if (viewMode === 'edit') {
+                            const changeId = data.id ? String(data.id) : null;
+                            if (!changeId) {
+                                throw new Error('Missing change request id for editing.');
+                            }
+                            await updateDestinationChange(changeId, { fields: detailsFromForm });
+                            await uploadImagesIfNeeded(changeId);
+                            setDraftReloadToken(prev => prev + 1);
+                        }
+
+                        setConfirmAction({
+                            title: 'Success!',
+                            message: `${data.name} has been successfully ${viewMode === 'add' ? 'added to Draft' : 'updated'}.`,
+                            confirmText: 'OK',
+                            confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
+                            handler: () => {
                         setIsConfirmVisible(false);
                         setConfirmAction(null);
                         setViewMode('list'); 
                         setFormDataForForm(null);
                     }
                 });
+                    } catch (error) {
+                        setConfirmAction({
+                            title: 'Save Failed',
+                            message: error instanceof Error ? error.message : 'Unable to save destination.',
+                            confirmText: 'Close',
+                            confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                            handler: () => {
+                                setIsConfirmVisible(false);
+                                setConfirmAction(null);
+                            }
+                        });
+                    } finally {
+                        setIsConfirmVisible(true);
+                    }
+                })();
             }
         });
         setIsConfirmVisible(true);
@@ -546,10 +682,13 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const handleFormDelete = (id: Destination['id']) => {
         handleDeleteDestination(id);
     }
+
+    const handleFormChange = (next: DestinationFormData) => {
+        setFormDataForForm(next);
+    };
     
     // Render list view
-   if (viewMode === 'list') {
-        return (
+   const listView = (
             <div className="p-8">
                 <h1 className="text-3xl font-bold text-gray-900 mb-6">Destination Management</h1>
                 <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
@@ -643,13 +782,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                         </div>
 
                         <button  type='button'
-                            onClick={() => { 
-                                setFormDataForForm(emptyDestinationInitialData);
-                                setViewMode('add'); 
-                                setIsSortOpen(false); // [เพิ่ม] ปิด Sort
-                                setIsFilterOpen(false); // [เพิ่ม] ปิด Filter
-                                setIsOpenActionMenuId(null); // [เพิ่ม] ปิด Action Menu
-                            }}
+                            onClick={handleAddNew}
                             className="flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md text-sm font-medium"
                         >
                             <Plus className="w-4 h-4 mr-2" />
@@ -767,12 +900,13 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <ActionMenu
                                                 options={activeTab === 'published' ? [
-                                                    { value: 'view', label: 'View Detail', action: () => handleViewDetail(destination.id) },
-                                                    { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination.id) },
+                                                    { value: 'view', label: 'View Detail', action: () => handleRowAction('view', destination) },
+                                                    { value: 'edit', label: 'Edit Detail', action: () => handleRowAction('edit', destination) },
                                                 ] : [
-                                                    { value: 'edit', label: 'Edit Detail', action: () => handleEditDetail(destination.id) },
-                                                    { value: 'pending', label: 'Submit for Review', action: () => {
-                                                        console.log('[DestinationManagement] Submit for Review clicked for destination:', {
+                                                    { value: 'view', label: 'View Detail', action: () => handleRowAction('view', destination) },
+                                                    { value: 'edit', label: 'Edit Detail', action: () => handleRowAction('edit', destination) },
+                                                    { value: 'pending', label: 'Review Pending', action: () => {
+                                                        console.log('[DestinationManagement] Review Pending clicked for destination:', {
                                                             id: destination.id,
                                                             changeRequestId: destination.changeRequestId,
                                                         });
@@ -810,20 +944,49 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                 </div>
             </div>
         );
-    }
     
     // Render form view
     const initialFormState = formDataForForm || emptyDestinationInitialData;
 
+    if (viewMode === 'list') {
+        return (
+            <>
+                {listView}
+                <ConfirmPopup
+                    isVisible={isConfirmVisible}
+                    title={confirmAction?.title || 'Confirm'}
+                    message={confirmAction?.message || 'Are you sure?'}
+                    onConfirm={() => {
+                        if (confirmAction?.confirmText === 'OK') {
+                            handleConfirmClose();
+                        } else if (confirmAction?.handler) {
+                            confirmAction.handler();
+                        }
+                    }}
+                    onCancel={handleConfirmClose} 
+                    confirmText={confirmAction?.confirmText}
+                    cancelText={confirmAction?.cancelText}
+                    confirmButtonClass={confirmAction?.confirmButtonClass}
+                />
+            </>
+        );
+    }
+
     return (
         <>
-            <DestinationForm
-                initialData={initialFormState}
-                viewMode={viewMode as 'add' | 'edit' | 'view'}
-                onSave={handleSaveForm}
-                onCancel={handleCancelForm}
-                onDelete={handleFormDelete} 
-            />
+            <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-4 py-8">
+                <div className="mx-auto max-w-6xl">
+                    <DestinationForm
+                        data={initialFormState}
+                        viewMode={viewMode as 'add' | 'edit' | 'view'}
+                        onChange={handleFormChange}
+                        onSave={handleSaveForm}
+                        onCancel={handleCancelForm}
+                        onDelete={handleFormDelete} 
+                        isLoading={isDetailLoading}
+                    />
+                </div>
+            </div>
             <ConfirmPopup
                 isVisible={isConfirmVisible}
                 title={confirmAction?.title || 'Confirm'}

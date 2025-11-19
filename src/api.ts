@@ -335,6 +335,7 @@ export interface DestinationChangeFields {
     ordering?: number;
     url?: string;
   }>;
+  hero_image_temp_key?: string;
   hero_image_upload_id?: string;
   hero_image_url?: string;
   published_hero_image?: string;
@@ -414,6 +415,38 @@ export async function fetchDestinationChangeById(changeId: string): Promise<Dest
   return (await response.json()) as DestinationChangeDetailResponse;
 }
 
+export interface CreateDestinationChangePayload {
+  action: "create" | "update" | "delete";
+  destination_id?: string;
+  fields: DestinationChangeFields;
+}
+
+export interface UpdateDestinationChangePayload {
+  draft_version?: number;
+  fields: DestinationChangeFields;
+}
+
+export async function createDestinationChange(
+  payload: CreateDestinationChangePayload
+): Promise<DestinationChangeDetailResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return (await response.json()) as DestinationChangeDetailResponse;
+}
+
+export async function updateDestinationChange(
+  changeId: string,
+  payload: UpdateDestinationChangePayload
+): Promise<DestinationChangeDetailResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  return (await response.json()) as DestinationChangeDetailResponse;
+}
+
 export interface ApproveDestinationChangeResponse {
   change_request: DestinationChange;
   destination?: Record<string, unknown>;
@@ -478,3 +511,32 @@ export const api = {
   delete: (url: string) =>
     fetchWithAuth(`${API_BASE_URL}${url}`, { method: "DELETE" }).then((res) => res.json()),
 };
+
+export interface MediaUploadResponse {
+  change_request: DestinationChange;
+  gallery_uploads?: Array<{
+    ordering?: number;
+    upload_id?: string;
+    url?: string;
+  }>;
+}
+
+export async function uploadDestinationGallery(changeId: string, files: File[]): Promise<MediaUploadResponse> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}/gallery`, {
+    method: "POST",
+    body: formData,
+  });
+  return (await response.json()) as MediaUploadResponse;
+}
+
+export async function uploadDestinationHeroImage(changeId: string, file: File): Promise<MediaUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}/hero-image`, {
+    method: "POST",
+    body: formData,
+  });
+  return (await response.json()) as MediaUploadResponse;
+}
