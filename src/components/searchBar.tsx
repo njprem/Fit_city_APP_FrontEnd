@@ -34,7 +34,7 @@ export default function SearchBar({
   const [error, setError] = useState<string | null>(null);
   const [isFocused, setIsFocused] = useState(false);
 
-  // 🆕 Single filter (category or popularity)
+  // 🆕 Single filter
   const [selectedFilter] = useState<string>("");
 
   const inputId = useId();

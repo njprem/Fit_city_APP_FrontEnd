@@ -217,7 +217,7 @@ export default function SearchResultsPage() {
                       <img
                         src={destination.hero_image_url}
                         alt={destination.name}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        className="block w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       />
                     </div>
                   )}
