@@ -123,7 +123,7 @@ function DestinationCard({
   return (
     <Link
       to={`/destination/${destination.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-slate-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#016B71]"
+      className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg focus-visible:outline focus-visible:outline-offset-4 focus-visible:outline-[#016B71]"
     >
       <div className="relative h-44 w-full overflow-hidden">
         <img
@@ -431,15 +431,15 @@ export const LandingPage = () => {
 
       <main className="flex flex-col gap-16 bg-[#F7F7F7] pb-16">
         <section className="relative isolate">
-          <div className="relative h-[34rem] w-full overflow-hidden">
+          <div className="relative h-136 w-full overflow-hidden">
             <img
               src={heroImage}
               alt="Hikers at the top of a mountain"
               className="h-full w-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#01272A]/80 via-[#01272A]/40 to-[#001417]/20" />
+            <div className="absolute inset-0 bg-linear-to-r from-[#01272A]/80 via-[#01272A]/40 to-[#001417]/20" />
 
-            <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col justify-center px-6 py-12 text-white sm:px-10 lg:px-0">
+            <div className="relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col justify-center px-6 py-12 text-white sm:px-10">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">
                 Explore the world with FitCity
               </p>
@@ -473,27 +473,29 @@ export const LandingPage = () => {
             </div>
 
             <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-4">
-              <div className="flex flex-wrap justify-center gap-8 rounded-[30px] bg-white/90 px-4 py-2 shadow-2xl backdrop-blur">
-                {CATEGORY_TABS.map((tab) => {
-                  const isActive = tab.value === activeCategory;
-                  return (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      onClick={() => setActiveCategory(tab.value)}
-                      className={`flex items-center gap-4 rounded-[26px] px-12 py-3 text-base font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#016B71] ${
-                        isActive
-                          ? "bg-[#FFFDD8] text-[#016B71]"
-                          : "bg-[#016B71] text-white hover:bg-[#01585C]"
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-lg">
-                        {tab.icon}
-                      </span>
-                      {tab.label}
-                    </button>
-                  );
-                })}
+              <div className="w-full max-w-6xl rounded-[30px] bg-white/90 px-4 py-4 shadow-2xl backdrop-blur">
+                <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {CATEGORY_TABS.map((tab) => {
+                    const isActive = tab.value === activeCategory;
+                    return (
+                      <button
+                        key={tab.value}
+                        type="button"
+                        onClick={() => setActiveCategory(tab.value)}
+                        className={`flex w-full items-center justify-center gap-3 rounded-[26px] px-6 py-4 text-base font-semibold transition focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-[#016B71] ${
+                          isActive
+                            ? "bg-[#FFFDD8] text-[#016B71]"
+                            : "bg-[#016B71] text-white hover:bg-[#01585C]"
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-lg">
+                          {tab.icon}
+                        </span>
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
@@ -501,9 +503,9 @@ export const LandingPage = () => {
 
         <section
           id="category-destinations"
-          className="mx-auto w-full max-w-6xl px-6"
+          className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 2xl:max-w-[calc(100%-4in)]"
         >
-          <div className="flex flex-col gap-6 rounded-[32px] bg-white px-6 py-10 shadow-md sm:px-10">
+          <div className="flex w-full flex-col gap-6 rounded-4xl bg-white px-6 py-10 shadow-md sm:px-10">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wide text-[#016B71]">
@@ -558,8 +560,8 @@ export const LandingPage = () => {
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-6xl px-6">
-          <div className="flex flex-col gap-6 rounded-[32px] bg-white px-6 py-10 shadow-md sm:px-10">
+        <section className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 2xl:max-w-[calc(100%-4in)]">
+          <div className="flex w-full flex-col gap-6 rounded-4xl bg-white px-6 py-10 shadow-md sm:px-10">
             <div className="flex flex-col gap-3">
               <p className="text-sm font-semibold uppercase tracking-wide text-[#016B71]">
                 Curated for you
