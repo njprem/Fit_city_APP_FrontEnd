@@ -19,7 +19,6 @@ type Props = {
   loading?: boolean;
 };
 
-const CATEGORIES: CategoryFilter[] = ["Culture", "Food", "Nature", "Sport"];
 
 export default function SearchBar({
   placeholder = "Find your places to go",
@@ -36,7 +35,7 @@ export default function SearchBar({
   const [isFocused, setIsFocused] = useState(false);
 
   // 🆕 Single filter (category or popularity)
-  const [selectedFilter, setSelectedFilter] = useState<string>("");
+  const [selectedFilter] = useState<string>("");
 
   const inputId = useId();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -69,7 +68,7 @@ export default function SearchBar({
       try {
         console.log("[SearchBar] Searching for:", trimmedQuery);
 
-        // Determine if filter is a category or popularity
+
         const isPopularity = selectedFilter === "popularity";
         const sort: SortOption = isPopularity ? "rating_desc" : "rating_desc";
         const categories: CategoryFilter[] =
@@ -82,7 +81,6 @@ export default function SearchBar({
           categories: categories.length ? categories : undefined,
         });
 
-        // Prefer first gallery image as hero for each destination in dropdown
         const withHero: Destination[] = (response.destinations || []).map((d) => ({
           ...d,
           hero_image_url: d.gallery?.[0]?.url ?? d.hero_image_url,
@@ -150,19 +148,25 @@ export default function SearchBar({
     e.preventDefault();
     const trimmed = q.trim();
 
-    if (results.length > 0) {
-      addToSearchHistory(trimmed);
-      const id = results[0].id;
-      if (id) {
-        navigate(`/destination/${id}`);
-      }
-      setShowDropdown(false);
-      setQ("");
-    } else if (trimmed) {
+
+    const active = document.activeElement as HTMLElement | null;
+    const optionFocused =
+      active &&
+      dropdownRef.current?.contains(active) &&
+      active.getAttribute("role") === "option";
+
+    if (optionFocused) {
+      active.click();
+      return;
+    }
+
+    // ignoring the first dropdown result.
+    if (trimmed) {
       addToSearchHistory(trimmed);
       navigate(`/search?q=${encodeURIComponent(trimmed)}`);
       setShowDropdown(false);
       onSearch?.(trimmed);
+      setQ("");
     }
   }
 
@@ -209,7 +213,7 @@ export default function SearchBar({
         className={[
           "flex items-center gap-3 rounded-full border border-black/5",
           "bg-amber-50 shadow-[0_2px_0_rgba(0,0,0,.08)]",
-          "w-full h-12 md:h-14 px-4 md:px-5",
+          "w-full h-12 md:h-14 px-4 md:px-7",
           className,
         ].join(" ")}
       >
@@ -243,7 +247,7 @@ export default function SearchBar({
         />
 
         {/* 🆕 Single Blue Filter Select */}
-        <select
+        {/* <select
           value={selectedFilter}
           onChange={(e) => setSelectedFilter(e.target.value)}
           className={[
@@ -264,7 +268,7 @@ export default function SearchBar({
             </option>
           ))}
           <option value="popularity">Popularity</option>
-        </select>
+        </select> */}
       </form>
 
       {/* Dropdown Results */}
@@ -311,7 +315,7 @@ export default function SearchBar({
                   <img
                     src={destination.hero_image_url}
                     alt=""
-                    className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                    className="w-16 h-16 object-cover rounded-lg shrink-0"
                   />
                 )}
                 <div className="flex-1 min-w-0">
