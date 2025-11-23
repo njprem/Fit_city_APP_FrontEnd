@@ -7,8 +7,8 @@ import ConfirmPopup from '../Admin_Component/Confirm_Popup';
 import DestinationForm from '../Admin_Component/Destination_Form';
 import { emptyDestinationInitialData, type DestinationFormData } from '../Admin_Component/destinationFormData';
 import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
-import ActionMenu from '../Admin_Component/ActionMenu';
-import { createDestinationChange, fetchDestinationChangeById, fetchDestinationChanges, submitDestinationChange, updateDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, type DestinationChange, type DestinationChangeDetailResponse } from '../../api';
+import ActionMenu, { type ActionOption } from '../Admin_Component/ActionMenu';
+import { createDestinationChange, fetchDestinationChanges, submitDestinationChange, updateDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, type DestinationChange, type DestinationChangeDetailResponse, type DestinationChangeFields } from '../../api';
 
 interface DestinationManagementProps {
     onNavigateToRequests?: () => void;
@@ -25,6 +25,7 @@ interface Destination {
     adminName: string;
     changeRequestId?: string;
     details?: DestinationChange['fields'];
+    change?: DestinationChange;
 }
 
 // ** Updated Type Options **
@@ -126,10 +127,10 @@ const collectImageSources = (fields?: DestinationChange['fields']): string[] => 
     pushIfValid(fields.hero_image_url as string | undefined);
     pushIfValid(fields.published_hero_image as string | undefined);
 
-    if (Array.isArray((fields as any).gallery)) {
-        (fields as any).gallery.forEach((item: any) => {
+    if (Array.isArray(fields.gallery)) {
+        fields.gallery.forEach((item) => {
             if (item && typeof item === 'object' && 'url' in item) {
-                pushIfValid((item as any).url);
+                pushIfValid(item.url as string | undefined);
             }
         });
     }
@@ -146,15 +147,27 @@ const adaptApprovedChangeToDestination = (change: DestinationChange): Destinatio
     const typeLabel =
         typeof fields.category === 'string' && fields.category.trim() ? fields.category : 'Unknown';
 
+    // ใช้ full_name ถ้ามี ไม่เช่นนั้นใช้ username หรือ UUID
+    const createdBy = change.submitted_by_full_name 
+        ?? change.submitted_by_username 
+        ?? change.submitted_by 
+        ?? 'Unknown';
+    
+    const adminName = change.reviewed_by_full_name 
+        ?? change.reviewed_by_username 
+        ?? change.reviewed_by 
+        ?? '—';
+
     return {
         id: change.destination_id ?? change.id,
         changeRequestId: change.id,
         status: deriveStatusFromChange(change),
         name,
         type: typeLabel,
-        createdBy: change.submitted_by ?? 'Unknown',
-        adminName: change.reviewed_by ?? '—',
+        createdBy,
+        adminName,
         details: change.fields,
+        change,
     };
 };
 
@@ -167,15 +180,27 @@ const adaptDraftChangeToDestination = (change: DestinationChange): Destination =
     const typeLabel =
         typeof fields.category === 'string' && fields.category.trim() ? fields.category : 'Unknown';
 
+    // ใช้ full_name ถ้ามี ไม่เช่นนั้นใช้ username หรือ UUID
+    const createdBy = change.submitted_by_full_name 
+        ?? change.submitted_by_username 
+        ?? change.submitted_by 
+        ?? 'Unknown';
+    
+    const adminName = change.reviewed_by_full_name 
+        ?? change.reviewed_by_username 
+        ?? change.reviewed_by 
+        ?? '—';
+
     return {
         id: change.id,
         changeRequestId: change.id,
         status: mapDraftStatus(change),
         name,
         type: typeLabel,
-        createdBy: change.submitted_by ?? 'Unknown',
-        adminName: change.reviewed_by ?? '—',
+        createdBy,
+        adminName,
         details: change.fields,
+        change,
     };
 };
 // #endregion Mock Data & Logic
@@ -191,6 +216,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const [draftList, setDraftList] = useState<Destination[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'view'>('list'); 
     const [formDataForForm, setFormDataForForm] = useState<DestinationFormData | null>(null); // Data passed to DestinationForm
+    const [activeChangeRequestId, setActiveChangeRequestId] = useState<string | null>(null);
     const [isConfirmVisible, setIsConfirmVisible] = useState(false);
     const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; handler: () => void; confirmText?: string; cancelText?: string; confirmButtonClass?: string } | null>(null);
     const [isSortOpen, setIsSortOpen] = useState(false); 
@@ -208,7 +234,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const filterRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 16] Ref สำหรับ Filter
 
     const handleSearch = () => {
-        console.log(`Search button clicked for: ${searchTerm}`);
+        // Search functionality
     };
 
     const handleRetryPublished = () => {
@@ -220,11 +246,9 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     };
 
     const handleSubmitDraft = async (changeId?: string | null) => {
-        console.log('[DestinationManagement] handleSubmitDraft called with changeId:', changeId);
         const effectiveId = typeof changeId === 'string' && changeId.trim() ? changeId : undefined;
 
         if (!effectiveId) {
-            console.error('[DestinationManagement] Cannot submit draft without a valid change request ID', { changeId });
             setConfirmAction({
                 title: 'Submission Failed',
                 message: 'This draft cannot be submitted because it does not have a change request ID yet.',
@@ -239,7 +263,6 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
             return;
         }
         try {
-            console.log('[DestinationManagement] Submitting draft to backend with ID:', effectiveId);
             const response = await submitDestinationChange(effectiveId);
             const submittedId = response.change_request?.destination_id ?? response.change_request?.id ?? effectiveId;
             const serverMessage = response.message || `Destination ${submittedId} has been submitted for review.`;
@@ -253,7 +276,6 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                     setConfirmAction(null);
                     setDraftReloadToken(prev => prev + 1);
                     if (onNavigateToRequests) {
-                        console.log('[DestinationManagement] Navigating to Destination Request page after submit');
                         onNavigateToRequests();
                     }
                 }
@@ -350,7 +372,8 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                 if (isCancelled) {
                     return;
                 }
-                setDraftList(response.changes.map(adaptDraftChangeToDestination));
+                const mapped = response.changes.map(adaptDraftChangeToDestination);
+                setDraftList(mapped);
             } catch (error) {
                 if (isCancelled) {
                     return;
@@ -405,7 +428,12 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const handleToggleActionMenu = (id: Destination['id']) => {
         setIsSortOpen(false); // ปิด Sort
         setIsFilterOpen(false); // ปิด Filter
-        setIsOpenActionMenuId(prevId => prevId === id ? null : id); // Toggle หรือเปิดใหม่
+        // แปลง id เป็น string เพื่อเปรียบเทียบให้ถูกต้อง
+        const idStr = String(id);
+        setIsOpenActionMenuId(prevId => {
+            const prevIdStr = prevId !== null ? String(prevId) : null;
+            return prevIdStr === idStr ? null : id;
+        });
     };
 
     const handleCloseActionMenu = () => {
@@ -426,7 +454,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     };
 
     const buildFormDataForAction = (destination?: Destination): DestinationFormData => {
-        const details = (destination?.details ?? {}) as Record<string, unknown>;
+        const details = (destination?.change?.fields ?? destination?.details ?? {}) as Record<string, unknown>;
         const ensureString = (value: unknown, fallback = ''): string =>
             typeof value === 'string' ? value : fallback;
         const ensureNumber = (value: unknown): number | null => {
@@ -438,10 +466,10 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
         };
 
         const galleryFromFields =
-            Array.isArray((details as any).gallery)
-                ? ((details as any).gallery as Array<{ url?: string }>)
+            Array.isArray(details.gallery)
+                ? (details.gallery as Array<{ url?: string }>)
                     .map(g => g?.url)
-                    .filter(Boolean) as string[]
+                    .filter((url): url is string => Boolean(url))
                 : [];
 
         const heroImage = ensureString(details.hero_image_url, '');
@@ -467,14 +495,14 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
         };
     };
 
-    const mapFormToDetails = (data: DestinationFormData): DestinationChange['fields'] => ({
+    const mapFormToDetails = (data: DestinationFormData): DestinationChangeFields => ({
         name: data.name,
         category: data.type,
         contact: data.contact,
         country: data.country,
         city: data.city,
-        latitude: data.latitude,
-        longitude: data.longitude,
+        latitude: data.latitude ?? undefined,
+        longitude: data.longitude ?? undefined,
         opening_time: data.openingTime,
         closing_time: data.closingTime,
         description: data.description,
@@ -483,7 +511,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
         gallery: data.images?.map((url, index) => ({ url, ordering: index })) ?? [],
     });
 
-    const mapChangeDetailToFormData = (change: DestinationChangeDetailResponse['change_request']): DestinationFormData => {
+    const mapChangeDetailToFormData = (change: DestinationChangeDetailResponse['change_request'] | DestinationChange): DestinationFormData => {
         const fields = change.fields ?? {};
         const base = { ...emptyDestinationInitialData };
 
@@ -495,10 +523,10 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
             contact: typeof fields.contact === 'string' ? fields.contact : base.contact,
             country: typeof fields.country === 'string' ? fields.country : base.country,
             city: typeof fields.city === 'string' ? fields.city : base.city,
-            latitude: toNumberOrNull((fields as any).latitude) ?? base.latitude,
-            longitude: toNumberOrNull((fields as any).longitude) ?? base.longitude,
-            openingTime: typeof (fields as any).opening_time === 'string' ? (fields as any).opening_time : base.openingTime,
-            closingTime: typeof (fields as any).closing_time === 'string' ? (fields as any).closing_time : base.closingTime,
+            latitude: toNumberOrNull(fields.latitude) ?? base.latitude,
+            longitude: toNumberOrNull(fields.longitude) ?? base.longitude,
+            openingTime: typeof fields.opening_time === 'string' ? fields.opening_time : base.openingTime,
+            closingTime: typeof fields.closing_time === 'string' ? fields.closing_time : base.closingTime,
             description: typeof fields.description === 'string' ? fields.description : base.description,
             images: collectImageSources(fields),
             imageFiles: [],
@@ -533,6 +561,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                         setConfirmAction(null);
                         setViewMode('list'); 
                         setFormDataForForm(null);
+                        setActiveChangeRequestId(null);
                     }
                 });
             }
@@ -541,12 +570,9 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
         resetOverlays();
     };
 
-    const handleRowAction = async (action: 'view' | 'edit', destination: Destination) => {
+    const handleRowAction = (action: 'view' | 'edit', destination: Destination) => {
         resetOverlays();
-        // Optimistically open with list data so the form shows immediately
-        setFormDataForForm(buildFormDataForAction(destination));
-        setViewMode(action);
-
+        
         const changeId = destination.changeRequestId ?? destination.id;
         if (!changeId) {
             setConfirmAction({
@@ -563,31 +589,71 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
             return;
         }
 
-        setIsDetailLoading(true);
-        try {
-            const detail = await fetchDestinationChangeById(String(changeId));
-            const formData = mapChangeDetailToFormData(detail.change_request);
-            setFormDataForForm(formData);
-        } catch (error) {
-            console.error('Failed to load destination detail', error);
-            setConfirmAction({
-                title: 'Failed to Load Detail',
-                message: error instanceof Error ? error.message : 'Unable to load destination detail.',
-                confirmText: 'Close',
-                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
-                handler: () => {
-                    setIsConfirmVisible(false);
-                    setConfirmAction(null);
-                }
-            });
-            setIsConfirmVisible(true);
-        } finally {
-            setIsDetailLoading(false);
-        }
+        setActiveChangeRequestId(String(changeId));
+
+        const fallbackFormData: DestinationFormData = {
+            ...emptyDestinationInitialData,
+            id: destination.id ?? null,
+            name: destination.name ?? '',
+            type: destination.type ?? '',
+        };
+
+        const initialFormData = destination.change
+            ? mapChangeDetailToFormData(destination.change)
+            : destination.details
+                ? buildFormDataForAction(destination)
+                : fallbackFormData;
+
+        setFormDataForForm(initialFormData);
+        setViewMode(action);
+        setIsDetailLoading(false);
     };
 
     const handleAddNew = () => {
+        setActiveChangeRequestId(null);
         openForm('add');
+    };
+
+    const showSubmitDraftConfirm = (destination: Destination) => {
+        const targetId = destination.changeRequestId ?? (typeof destination.id === 'string' ? destination.id : null);
+        setConfirmAction({
+            title: 'Submit for Review',
+            message: `Submit draft ID: ${destination.id} for review?`,
+            confirmText: 'Submit',
+            cancelText: 'Cancel',
+            confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
+            handler: () => {
+                setIsConfirmVisible(false);
+                setConfirmAction(null);
+                handleSubmitDraft(targetId);
+            }
+        });
+        setIsConfirmVisible(true);
+    };
+
+    const buildActionMenuOptions = (destination: Destination): ActionOption[] => {
+        const baseOptions: ActionOption[] = [
+            { 
+                value: 'view', 
+                label: 'View Detail', 
+                action: () => handleRowAction('view', destination)
+            },
+            { 
+                value: 'edit', 
+                label: 'Edit Detail', 
+                action: () => handleRowAction('edit', destination)
+            },
+        ];
+
+        if (activeTab === 'draft') {
+            baseOptions.push({
+                value: 'pending',
+                label: 'Review Pending',
+                action: () => showSubmitDraftConfirm(destination),
+            });
+        }
+
+        return baseOptions;
     };
 
 
@@ -619,11 +685,12 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                 fields: detailsFromForm,
                             });
                             const changeId = res.change_request.id;
+                            setActiveChangeRequestId(changeId);
                             await uploadImagesIfNeeded(changeId);
                             setDraftReloadToken(prev => prev + 1);
                             setActiveTab('draft');
                         } else if (viewMode === 'edit') {
-                            const changeId = data.id ? String(data.id) : null;
+                            const changeId = activeChangeRequestId ?? (typeof data.id === 'string' ? data.id : null);
                             if (!changeId) {
                                 throw new Error('Missing change request id for editing.');
                             }
@@ -642,6 +709,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                         setConfirmAction(null);
                         setViewMode('list'); 
                         setFormDataForForm(null);
+                        setActiveChangeRequestId(null);
                     }
                 });
                     } catch (error) {
@@ -667,6 +735,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const handleCancelForm = () => {
         setViewMode('list');
         setFormDataForForm(null);
+        setActiveChangeRequestId(null);
     };
 
     const handleConfirmClose = () => {
@@ -885,10 +954,10 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                 </tr>
                             ) : filteredAndSortedData.length > 0 ? (
                                 filteredAndSortedData.map((destination, index) => (
-                                    <tr
-                                        key={destination.changeRequestId ?? `${destination.id}-${index}`}
-                                        className="hover:bg-gray-50 transition-colors"
-                                    >
+                                        <tr
+                                            key={destination.changeRequestId ?? `${destination.id}-${index}`}
+                                            className="hover:bg-gray-50 transition-colors"
+                                        >
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <StatusPill status={destination.status} />
                                         </td>
@@ -897,37 +966,12 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{destination.type}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{destination.createdBy}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{destination.adminName}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                             <ActionMenu
-                                                options={activeTab === 'published' ? [
-                                                    { value: 'view', label: 'View Detail', action: () => handleRowAction('view', destination) },
-                                                    { value: 'edit', label: 'Edit Detail', action: () => handleRowAction('edit', destination) },
-                                                ] : [
-                                                    { value: 'view', label: 'View Detail', action: () => handleRowAction('view', destination) },
-                                                    { value: 'edit', label: 'Edit Detail', action: () => handleRowAction('edit', destination) },
-                                                    { value: 'pending', label: 'Review Pending', action: () => {
-                                                        console.log('[DestinationManagement] Review Pending clicked for destination:', {
-                                                            id: destination.id,
-                                                            changeRequestId: destination.changeRequestId,
-                                                        });
-                                                        setConfirmAction({
-                                                            title: 'Submit for Review',
-                                                            message: `Submit draft ID: ${destination.id} for review?`,
-                                                            confirmText: 'Submit',
-                                                            cancelText: 'Cancel',
-                                                            confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
-                                                            handler: () => {
-                                                                setIsConfirmVisible(false);
-                                                                setConfirmAction(null);
-                                                                handleSubmitDraft(destination.changeRequestId ?? (typeof destination.id === 'string' ? destination.id : null));
-                                                            }
-                                                        });
-                                                        setIsConfirmVisible(true);
-                                                    } },
-                                                ]}
-                                                isOpen={isOpenActionMenuId === destination.id} // <<-- [แก้ไขที่ 24]
-                                                onToggle={() => handleToggleActionMenu(destination.id)} // <<-- [แก้ไขที่ 25]
-                                                onClose={handleCloseActionMenu} // <<-- [แก้ไขที่ 26]
+                                                options={buildActionMenuOptions(destination)}
+                                                isOpen={isOpenActionMenuId !== null && String(isOpenActionMenuId) === String(destination.id)}
+                                                onToggle={() => handleToggleActionMenu(destination.id)}
+                                                onClose={handleCloseActionMenu}
                                             />
                                         </td>
                                     </tr>
@@ -947,6 +991,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     
     // Render form view
     const initialFormState = formDataForForm || emptyDestinationInitialData;
+
 
     if (viewMode === 'list') {
         return (

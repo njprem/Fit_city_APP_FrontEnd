@@ -349,7 +349,11 @@ export interface DestinationChange {
   destination_id?: string;
   status?: string;
   submitted_by?: string;
+  submitted_by_full_name?: string;
+  submitted_by_username?: string;
   reviewed_by?: string;
+  reviewed_by_full_name?: string;
+  reviewed_by_username?: string;
   submitted_at?: string;
   reviewed_at?: string;
   draft_version?: number;
