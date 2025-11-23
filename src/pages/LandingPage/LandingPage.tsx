@@ -427,11 +427,11 @@ export const LandingPage = () => {
 
   return (
     <>
-      <Navbar />
+      <Navbar/>
 
       <main className="flex flex-col gap-16 bg-[#F7F7F7] pb-16">
         <section className="relative isolate">
-          <div className="relative h-136 w-full overflow-hidden">
+          <div className="relative h-182 w-full overflow-hidden">
             <img
               src={heroImage}
               alt="Hikers at the top of a mountain"
