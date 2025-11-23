@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Destination_Management from "./Destination_Management";
 import Destination_Request from "./Destination_Request";
+import AdminDashboard from "./AdminDashboard";
 import Sidebar from "../Admin_Component/Sidebar";
 
 export default function Admin_Page() {
@@ -14,6 +15,8 @@ export default function Admin_Page() {
 
   const renderContent = () => {
     switch (activePage) {
+      case 'dashboard':
+        return <AdminDashboard />;
       case 'destinations':
         return (
           <Destination_Management
