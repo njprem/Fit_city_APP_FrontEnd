@@ -7,7 +7,7 @@ import {
   type AuthSession,
   type AuthUser,
 } from "./services/auth/authService";
-import type { DestinationByIdPayload, DestinationReviewsPayload } from "./types/destination";
+import type { DestinationByIdPayload, DestinationReviewsPayload, DestinationsResponse } from "./types/destination";
 
 const handleUnauthorized = () => {
   logout();
@@ -185,6 +185,32 @@ export async function getDestinationReviewById(id: string): Promise<DestinationR
   }
 
   return (await res.json()) as DestinationReviewsPayload;
+}
+
+export interface PublishedDestinationsQuery {
+  limit?: number;
+  offset?: number;
+  query?: string;
+  categories?: string;
+  min_rating?: number;
+  max_rating?: number;
+}
+
+export async function fetchPublishedDestinations(
+  query: PublishedDestinationsQuery = {}
+): Promise<DestinationsResponse> {
+  const params = new URLSearchParams();
+  if (typeof query.limit === "number") params.set("limit", String(query.limit));
+  if (typeof query.offset === "number") params.set("offset", String(query.offset));
+  if (query.query) params.set("query", query.query);
+  if (query.categories) params.set("categories", query.categories);
+  if (typeof query.min_rating === "number") params.set("min_rating", String(query.min_rating));
+  if (typeof query.max_rating === "number") params.set("max_rating", String(query.max_rating));
+
+  const queryString = params.toString();
+  const url = `${API_BASE_URL}/api/v1/destinations${queryString ? `?${queryString}` : ""}`;
+  const response = await fetchWithAuth(url, { method: "GET" });
+  return (await response.json()) as DestinationsResponse;
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {

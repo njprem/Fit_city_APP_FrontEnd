@@ -8,7 +8,8 @@ import DestinationForm from '../Admin_Component/Destination_Form';
 import { emptyDestinationInitialData, type DestinationFormData } from '../Admin_Component/destinationFormData';
 import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
 import ActionMenu, { type ActionOption } from '../Admin_Component/ActionMenu';
-import { createDestinationChange, fetchDestinationChanges, submitDestinationChange, updateDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, type DestinationChange, type DestinationChangeDetailResponse, type DestinationChangeFields } from '../../api';
+import { createDestinationChange, fetchDestinationChanges, fetchPublishedDestinations, submitDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, type DestinationChange, type DestinationChangeDetailResponse, type DestinationChangeFields } from '../../api';
+import type { Destination as TravelerDestination } from '../../types/destination';
 
 interface DestinationManagementProps {
     onNavigateToRequests?: () => void;
@@ -24,6 +25,7 @@ interface Destination {
     createdBy: string;
     adminName: string;
     changeRequestId?: string;
+    destinationId?: string | null;
     details?: DestinationChange['fields'];
     change?: DestinationChange;
 }
@@ -78,14 +80,6 @@ const processDestinations = (data: Destination[], searchTerm: string, sortBy: st
     return result;
 };
 
-const deriveStatusFromChange = (change: DestinationChange): StatusType => {
-    const fieldStatus = typeof change.fields?.status === 'string' ? change.fields.status.toLowerCase() : '';
-    if (change.action === 'delete' || change.fields?.hard_delete || fieldStatus === 'inactive') {
-        return 'Inactive';
-    }
-    return 'Active';
-};
-
 const mapDraftStatus = (change: DestinationChange): StatusType => {
     const changeStatus = (change.status ?? '').toLowerCase();
     if (changeStatus === 'rejected') {
@@ -138,36 +132,48 @@ const collectImageSources = (fields?: DestinationChange['fields']): string[] => 
     return Array.from(images);
 };
 
-const adaptApprovedChangeToDestination = (change: DestinationChange): Destination => {
-    const fields = change.fields ?? {};
-    const name =
-        typeof fields.name === 'string' && fields.name.trim()
-            ? fields.name
-            : `Destination ${change.destination_id ?? change.id}`;
-    const typeLabel =
-        typeof fields.category === 'string' && fields.category.trim() ? fields.category : 'Unknown';
+const mapPublishedRecordStatus = (status?: string): StatusType => {
+    const normalized = (status ?? '').toLowerCase();
+    if (normalized === 'inactive') {
+        return 'Inactive';
+    }
+    return 'Active';
+};
 
-    // ใช้ full_name ถ้ามี ไม่เช่นนั้นใช้ username หรือ UUID
-    const createdBy = change.submitted_by_full_name 
-        ?? change.submitted_by_username 
-        ?? change.submitted_by 
-        ?? 'Unknown';
-    
-    const adminName = change.reviewed_by_full_name 
-        ?? change.reviewed_by_username 
-        ?? change.reviewed_by 
-        ?? '—';
+const adaptPublishedRecordToDestination = (record: TravelerDestination): Destination => {
+    const details: DestinationChange['fields'] = {
+        name: record.name,
+        category: record.category,
+        status: record.status,
+        city: record.city,
+        country: record.country,
+        description: record.description,
+        opening_time: record.opening_time,
+        closing_time: record.closing_time,
+        contact: record.contact,
+        latitude: record.latitude,
+        longitude: record.longitude,
+        hero_image_url: record.hero_image_url,
+        gallery: Array.isArray(record.gallery)
+            ? record.gallery.map((image, index) => ({
+                url: image.url,
+                caption: image.caption,
+                ordering: typeof image.ordering === 'number' ? image.ordering : index,
+            }))
+            : undefined,
+    };
 
     return {
-        id: change.destination_id ?? change.id,
-        changeRequestId: change.id,
-        status: deriveStatusFromChange(change),
-        name,
-        type: typeLabel,
-        createdBy,
-        adminName,
-        details: change.fields,
-        change,
+        id: record.id,
+        destinationId: record.id,
+        changeRequestId: undefined,
+        status: mapPublishedRecordStatus(record.status),
+        name: record.name,
+        type: record.category,
+        createdBy: record.updated_by ?? '—',
+        adminName: record.updated_by ?? '—',
+        details,
+        change: undefined,
     };
 };
 
@@ -194,6 +200,7 @@ const adaptDraftChangeToDestination = (change: DestinationChange): Destination =
     return {
         id: change.id,
         changeRequestId: change.id,
+        destinationId: change.destination_id ?? null,
         status: mapDraftStatus(change),
         name,
         type: typeLabel,
@@ -216,7 +223,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const [draftList, setDraftList] = useState<Destination[]>([]);
     const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'view'>('list'); 
     const [formDataForForm, setFormDataForForm] = useState<DestinationFormData | null>(null); // Data passed to DestinationForm
-    const [activeChangeRequestId, setActiveChangeRequestId] = useState<string | null>(null);
+    const [editingDestinationId, setEditingDestinationId] = useState<string | null>(null);
     const [isConfirmVisible, setIsConfirmVisible] = useState(false);
     const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; handler: () => void; confirmText?: string; cancelText?: string; confirmButtonClass?: string } | null>(null);
     const [isSortOpen, setIsSortOpen] = useState(false); 
@@ -330,11 +337,11 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
             setIsLoadingPublished(true);
             setPublishedError(null);
             try {
-                const response = await fetchDestinationChanges({ status: 'approved', limit: 100, offset: 0 });
+                const response = await fetchPublishedDestinations({ limit: 100, offset: 0 });
                 if (isCancelled) {
                     return;
                 }
-                const mapped = response.changes.map(adaptApprovedChangeToDestination);
+                const mapped = response.destinations.map(adaptPublishedRecordToDestination);
                 setPublishedList(mapped);
             } catch (error) {
                 if (isCancelled) {
@@ -539,31 +546,91 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
         resetOverlays();
     };
 
+    const resolveDestinationIdForDelete = (destination?: Destination, fallback?: Destination['id']): string | null => {
+        if (destination?.destinationId) {
+            return destination.destinationId;
+        }
+        if (destination?.change?.destination_id) {
+            return String(destination.change.destination_id);
+        }
+        if (typeof fallback === 'string') {
+            return fallback;
+        }
+        if (typeof fallback === 'number') {
+            return String(fallback);
+        }
+        return null;
+    };
+
     const handleDeleteDestination = (id: Destination['id']) => {
         const target = [...publishedList, ...draftList].find(d => d.id === id);
         setConfirmAction({
             title: 'Confirm Delete Destination',
-            message: target ? `Are you sure you want to delete "${target.name}" (ID: ${id})? This action cannot be undone.` : `Are you sure you want to delete Destination ID: ${id}? This action cannot be undone.`,
+            message: target ? `Are you sure you want to delete "${target.name}" (ID: ${target.destinationId ?? id})? This action cannot be undone.` : `Are you sure you want to delete Destination ID: ${id}? This action cannot be undone.`,
             confirmText: 'Delete',
             cancelText: 'Cancel',
             confirmButtonClass: 'bg-red-600 hover:bg-red-700',
             handler: () => {
-                // TODO: replace with API delete call, then refresh lists
-                setPublishedList(prev => prev.filter(d => d.id !== id));
-                setDraftList(prev => prev.filter(d => d.id !== id));
-                setConfirmAction({
-                    title: 'Deletion Successful!',
-                    message: `Destination ID: ${id} has been successfully deleted.`,
-                    confirmText: 'OK',
-                    confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
-                    handler: () => {
-                        setIsConfirmVisible(false);
-                        setConfirmAction(null);
-                        setViewMode('list'); 
-                        setFormDataForForm(null);
-                        setActiveChangeRequestId(null);
+                setIsConfirmVisible(false);
+                (async () => {
+                    const destinationId = resolveDestinationIdForDelete(target, id);
+                    if (!destinationId) {
+                        setConfirmAction({
+                            title: 'Delete Failed',
+                            message: 'Unable to determine destination ID for deletion.',
+                            confirmText: 'Close',
+                            confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                            handler: () => {
+                                setIsConfirmVisible(false);
+                                setConfirmAction(null);
+                            }
+                        });
+                        setIsConfirmVisible(true);
+                        return;
                     }
-                });
+
+                    try {
+                        const deleteFields: DestinationChangeFields = {
+                            ...(target?.details ?? {}),
+                            status: 'inactive',
+                            hard_delete: false,
+                        };
+                        await createDestinationChange({
+                            action: 'delete',
+                            destination_id: destinationId,
+                            fields: deleteFields,
+                        });
+                        setDraftReloadToken(prev => prev + 1);
+                        setPublishedReloadToken(prev => prev + 1);
+                        setActiveTab('draft');
+                        setConfirmAction({
+                            title: 'Deletion Request Created',
+                            message: `Delete draft for destination ID: ${destinationId} has been created. Please submit it for review.`,
+                            confirmText: 'OK',
+                            confirmButtonClass: 'bg-teal-600 hover:bg-teal-700',
+                            handler: () => {
+                                setIsConfirmVisible(false);
+                                setConfirmAction(null);
+                                setViewMode('list'); 
+                                setFormDataForForm(null);
+                                setEditingDestinationId(null);
+                            }
+                        });
+                    } catch (error) {
+                        setConfirmAction({
+                            title: 'Delete Failed',
+                            message: error instanceof Error ? error.message : 'Unable to create delete request.',
+                            confirmText: 'Close',
+                            confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                            handler: () => {
+                                setIsConfirmVisible(false);
+                                setConfirmAction(null);
+                            }
+                        });
+                    } finally {
+                        setIsConfirmVisible(true);
+                    }
+                })();
             }
         });
         setIsConfirmVisible(true);
@@ -573,23 +640,34 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const handleRowAction = (action: 'view' | 'edit', destination: Destination) => {
         resetOverlays();
         
-        const changeId = destination.changeRequestId ?? destination.id;
-        if (!changeId) {
-            setConfirmAction({
-                title: 'Unable to Open',
-                message: 'No change request ID found for this destination.',
-                confirmText: 'Close',
-                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
-                handler: () => {
-                    setIsConfirmVisible(false);
-                    setConfirmAction(null);
-                }
-            });
-            setIsConfirmVisible(true);
-            return;
+        const changeRequestId = destination.changeRequestId ? String(destination.changeRequestId) : null;
+        const resolvedDestinationId =
+            typeof destination.change?.destination_id === 'string'
+                ? destination.change.destination_id
+                : destination.id !== undefined && destination.id !== null
+                    ? String(destination.id)
+                    : null;
+
+        if (action === 'edit') {
+            if (!changeRequestId && !resolvedDestinationId) {
+                setConfirmAction({
+                    title: 'Unable to Open',
+                    message: 'No destination ID found for this item.',
+                    confirmText: 'Close',
+                    confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                    handler: () => {
+                        setIsConfirmVisible(false);
+                        setConfirmAction(null);
+                    }
+                });
+                setIsConfirmVisible(true);
+                return;
+            }
+            setEditingDestinationId(resolvedDestinationId);
+        } else {
+            setEditingDestinationId(null);
         }
 
-        setActiveChangeRequestId(String(changeId));
 
         const fallbackFormData: DestinationFormData = {
             ...emptyDestinationInitialData,
@@ -610,7 +688,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     };
 
     const handleAddNew = () => {
-        setActiveChangeRequestId(null);
+        setEditingDestinationId(null);
         openForm('add');
     };
 
@@ -685,18 +763,25 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                 fields: detailsFromForm,
                             });
                             const changeId = res.change_request.id;
-                            setActiveChangeRequestId(changeId);
                             await uploadImagesIfNeeded(changeId);
                             setDraftReloadToken(prev => prev + 1);
                             setActiveTab('draft');
                         } else if (viewMode === 'edit') {
-                            const changeId = activeChangeRequestId ?? (typeof data.id === 'string' ? data.id : null);
-                            if (!changeId) {
-                                throw new Error('Missing change request id for editing.');
+                            const resolvedDestinationId =
+                                editingDestinationId ??
+                                (data.id !== null && data.id !== undefined ? String(data.id) : null);
+                            if (!resolvedDestinationId) {
+                                throw new Error('Missing destination id for update.');
                             }
-                            await updateDestinationChange(changeId, { fields: detailsFromForm });
+                            const res = await createDestinationChange({
+                                action: 'update',
+                                destination_id: resolvedDestinationId,
+                                fields: detailsFromForm,
+                            });
+                            const changeId = res.change_request.id;
                             await uploadImagesIfNeeded(changeId);
                             setDraftReloadToken(prev => prev + 1);
+                            setActiveTab('draft');
                         }
 
                         setConfirmAction({
@@ -709,7 +794,8 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                         setConfirmAction(null);
                         setViewMode('list'); 
                         setFormDataForForm(null);
-                        setActiveChangeRequestId(null);
+                        setEditingDestinationId(null);
+                        setEditingDestinationId(null);
                     }
                 });
                     } catch (error) {
@@ -735,7 +821,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const handleCancelForm = () => {
         setViewMode('list');
         setFormDataForForm(null);
-        setActiveChangeRequestId(null);
+        setEditingDestinationId(null);
     };
 
     const handleConfirmClose = () => {
