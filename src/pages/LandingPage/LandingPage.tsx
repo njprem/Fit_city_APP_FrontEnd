@@ -439,39 +439,18 @@ export const LandingPage = () => {
             />
             <div className="absolute inset-0 bg-linear-to-r from-[#01272A]/80 via-[#01272A]/40 to-[#001417]/20" />
 
-            <div className="relative z-10 mx-auto flex h-full w-full max-w-6xl flex-col justify-center px-6 py-12 text-white sm:px-10">
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">
-                Explore the world with FitCity
-              </p>
-              <h1 className="mt-4 text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
-                Find your perfect destination
-                <br />
-                before you go
-              </h1>
-              <p className="mt-6 max-w-2xl text-lg text-white/85">
-                Discover curated guides, unforgettable activities, and local
-                favourites without endless searching. Dive into culture, food,
-                nature, or sports destinations tailored for every traveler.
-              </p>
-              <div className="mt-8 flex flex-wrap gap-4">
-                <a
-                  href="#category-destinations"
-                  className="inline-flex items-center rounded-full bg-[#016B71] px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#01585C]"
-                >
-                  Learn more
-                  <span className="material-symbols-outlined ml-2 text-base">
-                    arrow_forward
-                  </span>
-                </a>
-                <Link
-                  to="/help"
-                  className="inline-flex items-center rounded-full bg-white/90 px-6 py-3 text-sm font-semibold text-[#016B71] shadow-lg transition hover:bg-white"
-                >
-                  Need help?
-                </Link>
+            <div className="absolute left-0 top-1/2 z-10 w-full -translate-y-1/2">
+              <div className="mx-auto flex w-full max-w-6xl flex-col px-6 text-white sm:px-10">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-white/80">
+                  Explore the world with FitCity
+                </p>
+                <h1 className="mt-4 text-2xl font-bold leading-tight sm:text-3xl lg:text-6xl">
+                  Find your perfect destination
+                  <br />
+                  before you go
+                </h1> 
               </div>
             </div>
-
             <div className="absolute inset-x-0 bottom-0 z-10 flex justify-center px-4 pb-4">
               <div className="w-full max-w-6xl rounded-[30px] bg-white/90 px-4 py-4 shadow-2xl backdrop-blur">
                 <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-4">
