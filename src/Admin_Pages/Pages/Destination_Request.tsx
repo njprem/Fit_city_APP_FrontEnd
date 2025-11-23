@@ -603,8 +603,9 @@ const DestinationRequestPage = () => {
       <div className="fixed inset-0 z-40 overflow-y-auto bg-black/40 px-4 py-8">
         <div className="mx-auto max-w-6xl">
           <DestinationForm
-            initialData={detailFormData}
+            data={detailFormData}
             viewMode="view"
+            onChange={setDetailFormData}
             onSave={() => undefined}
             onCancel={handleCloseDetailView}
           />
