@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Plus, ChevronDown, ArrowDownWideNarrow, SlidersHorizontal } from 'lucide-react'; 
+import { Plus, ChevronDown, ArrowDownWideNarrow, SlidersHorizontal, FileDown, Upload, ListChecks } from 'lucide-react'; 
 
 import SearchBar from '../Admin_Component/SearchBar';
 import Dropdown from '../Admin_Component/Dropdown';
@@ -8,7 +8,7 @@ import DestinationForm from '../Admin_Component/Destination_Form';
 import { emptyDestinationInitialData, type DestinationFormData } from '../Admin_Component/destinationFormData';
 import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
 import ActionMenu, { type ActionOption } from '../Admin_Component/ActionMenu';
-import { createDestinationChange, fetchDestinationChanges, fetchPublishedDestinations, submitDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, type DestinationChange, type DestinationChangeDetailResponse, type DestinationChangeFields } from '../../api';
+import { createDestinationChange, fetchDestinationChanges, fetchDestinationImportJob, fetchDestinationImportTemplate, fetchPublishedDestinations, submitDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, uploadDestinationImport, downloadDestinationImportErrors, type DestinationChange, type DestinationChangeDetailResponse, type DestinationChangeFields, type DestinationImportJob, type DestinationImportRow } from '../../api';
 import type { Destination as TravelerDestination } from '../../types/destination';
 
 interface DestinationManagementProps {
@@ -37,6 +37,55 @@ const typeOptions = [
     { value: 'Nature', label: 'Nature' },
     { value: 'Sport', label: 'Sport' },
 ];
+
+const fallbackImportTemplate = {
+    headers: [
+        'slug',
+        'name',
+        'status',
+        'category',
+        'city',
+        'country',
+        'description',
+        'latitude',
+        'longitude',
+        'contact',
+        'opening_time',
+        'closing_time',
+        'hero_image_url',
+        'gallery_1_url',
+        'gallery_1_caption',
+        'gallery_2_url',
+        'gallery_2_caption',
+        'gallery_3_url',
+        'gallery_3_caption',
+        'hero_image_upload_id',
+        'published_hero_image',
+    ],
+    sampleRow: [
+        'central-park',
+        'Central Park',
+        'published',
+        'Nature',
+        'New York',
+        'USA',
+        'Iconic urban park with year-round programming.',
+        '40.785091',
+        '-73.968285',
+        '+1 212-310-6600',
+        '06:00',
+        '22:00',
+        'https://cdn.fitcity/destinations/central-park/hero.jpg',
+        'https://cdn.fitcity/destinations/central-park/gallery-1.jpg',
+        'Bethesda Fountain',
+        'https://cdn.fitcity/destinations/central-park/gallery-2.jpg',
+        'Bow Bridge',
+        '',
+        '',
+        '',
+        '',
+    ],
+};
 
 const sortOptions = [
     { value: 'id_low', label: 'ID (Low to High)' },
@@ -236,6 +285,19 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const [draftError, setDraftError] = useState<string | null>(null);
     const [draftReloadToken, setDraftReloadToken] = useState(0);
     const [isDetailLoading, setIsDetailLoading] = useState(false);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [importFile, setImportFile] = useState<File | null>(null);
+    const [importNotes, setImportNotes] = useState('');
+    const [importDryRun, setImportDryRun] = useState(false);
+    const [importAutoSubmit, setImportAutoSubmit] = useState(true);
+    const [isUploadingImport, setIsUploadingImport] = useState(false);
+    const [isJobModalOpen, setIsJobModalOpen] = useState(false);
+    const [jobIdInput, setJobIdInput] = useState('');
+    const [jobDetails, setJobDetails] = useState<DestinationImportJob | null>(null);
+    const [jobRows, setJobRows] = useState<DestinationImportRow[]>([]);
+    const [jobStatusError, setJobStatusError] = useState<string | null>(null);
+    const [jobLoading, setJobLoading] = useState(false);
+    const [lastJobId, setLastJobId] = useState<string | null>(null);
 
     const sortRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 15] Ref สำหรับ Sort
     const filterRef = useRef<HTMLDivElement>(null); // <<-- [แก้ไขที่ 16] Ref สำหรับ Filter
@@ -458,6 +520,231 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
         setIsSortOpen(false);
         setIsFilterOpen(false);
         setIsOpenActionMenuId(null);
+    };
+
+    const escapeCsv = (value: unknown): string => {
+        const text = value === null || value === undefined ? '' : String(value);
+        const escaped = text.replace(/"/g, '""');
+        return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+    };
+
+    const downloadCsv = (headers: string[], sample: string[]) => {
+        const rows = [headers, sample].filter(row => row.length > 0);
+        const csvContent = rows.map(row => row.map(escapeCsv).join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'destination-import-template.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleDownloadTemplate = async () => {
+        resetOverlays();
+        let headers: string[] = [];
+        let sample: string[] = [];
+        let usedFallback = false;
+
+        try {
+            const { template } = await fetchDestinationImportTemplate();
+            headers = template?.headers ?? [];
+            sample = template?.sample_row ?? [];
+        } catch (error) {
+            console.error('[Template Download] falling back to baked template', error);
+            headers = fallbackImportTemplate.headers;
+            sample = fallbackImportTemplate.sampleRow;
+            usedFallback = true;
+        }
+
+        if (!headers.length) {
+            setConfirmAction({
+                title: 'Template Download Failed',
+                message: 'Template is empty or unavailable.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+            return;
+        }
+
+        downloadCsv(headers, sample);
+
+        if (usedFallback) {
+            setConfirmAction({
+                title: 'Template Downloaded (Fallback)',
+                message: 'Live template endpoint unavailable. Downloaded the documented sample instead.',
+                confirmText: 'OK',
+                confirmButtonClass: 'bg-indigo-600 hover:bg-indigo-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+        }
+    };
+
+    const handleOpenImportModal = () => {
+        resetOverlays();
+        setImportFile(null);
+        setImportNotes('');
+        setImportDryRun(false);
+        setImportAutoSubmit(true);
+        setIsImportModalOpen(true);
+    };
+
+    const handleCloseImportModal = () => {
+        setIsImportModalOpen(false);
+        setIsUploadingImport(false);
+    };
+
+    const fetchAndSetJob = async (jobId: string) => {
+        const trimmedId = jobId.trim();
+        if (!trimmedId) {
+            setJobStatusError('Please provide a job ID.');
+            setJobDetails(null);
+            setJobRows([]);
+            return;
+        }
+
+        setJobLoading(true);
+        setJobStatusError(null);
+        try {
+            const response = await fetchDestinationImportJob(trimmedId);
+            setJobDetails(response.job);
+            setJobRows(response.rows ?? []);
+            setLastJobId(trimmedId);
+        } catch (error) {
+            setJobDetails(null);
+            setJobRows([]);
+            setJobStatusError(error instanceof Error ? error.message : 'Unable to load import job.');
+        } finally {
+            setJobLoading(false);
+        }
+    };
+
+    const handleOpenJobModal = (jobId?: string) => {
+        resetOverlays();
+        setJobStatusError(null);
+        const nextJobId = jobId ?? lastJobId ?? '';
+        if (nextJobId) {
+            setJobIdInput(nextJobId);
+            fetchAndSetJob(nextJobId);
+        }
+        setIsJobModalOpen(true);
+    };
+
+    const handleSubmitImport = async (event?: React.FormEvent<HTMLFormElement>) => {
+        if (event) {
+            event.preventDefault();
+        }
+        if (!importFile) {
+            setConfirmAction({
+                title: 'File Required',
+                message: 'Please select a CSV file before uploading.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+            return;
+        }
+
+        setIsUploadingImport(true);
+        try {
+            const response = await uploadDestinationImport(importFile, {
+                dry_run: importDryRun,
+                submit: importAutoSubmit,
+                notes: importNotes.trim() || undefined,
+            });
+            const jobId = response.job?.id;
+            if (jobId) {
+                setLastJobId(jobId);
+                setJobIdInput(jobId);
+            }
+            setJobDetails(response.job ?? null);
+            setJobRows(response.rows ?? []);
+            setIsImportModalOpen(false);
+            setImportFile(null);
+
+            setConfirmAction({
+                title: importDryRun ? 'Dry Run Started' : 'Import Started',
+                message: jobId
+                    ? `Job ${jobId} is ${response.job?.status ?? 'queued'}. You can monitor its progress in the job viewer.`
+                    : 'Import created successfully.',
+                confirmText: 'View Job',
+                cancelText: 'Close',
+                confirmButtonClass: 'bg-indigo-600 hover:bg-indigo-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                    handleOpenJobModal(jobId || undefined);
+                }
+            });
+            setIsConfirmVisible(true);
+        } catch (error) {
+            setConfirmAction({
+                title: 'Import Failed',
+                message: error instanceof Error ? error.message : 'Unable to upload CSV.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+        } finally {
+            setIsUploadingImport(false);
+        }
+    };
+
+    const handleDownloadErrors = async () => {
+        const jobId = (jobDetails?.id ?? jobIdInput ?? lastJobId ?? '').trim();
+        if (!jobId) {
+            setConfirmAction({
+                title: 'Job ID Required',
+                message: 'Enter or load a job before downloading errors.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+            return;
+        }
+
+        try {
+            const blob = await downloadDestinationImportErrors(jobId);
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `destination-import-errors-${jobId}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            setConfirmAction({
+                title: 'Download Failed',
+                message: error instanceof Error ? error.message : 'Unable to download error CSV.',
+                confirmText: 'Close',
+                confirmButtonClass: 'bg-red-600 hover:bg-red-700',
+                handler: () => {
+                    setIsConfirmVisible(false);
+                    setConfirmAction(null);
+                }
+            });
+            setIsConfirmVisible(true);
+        }
     };
 
     const buildFormDataForAction = (destination?: Destination): DestinationFormData => {
@@ -852,7 +1139,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                         setSearchTerm={setSearchTerm}
                         onSearch={handleSearch}
                     />
-                   <div className="flex space-x-3">
+                   <div className="flex flex-wrap gap-3 justify-end">
                         {/* Sort Dropdown */}
                         <div className="relative" ref={sortRef}> {/* <<-- [แก้ไขที่ 20] เพิ่ม ref */}
                             <button type='button'
@@ -935,6 +1222,33 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                 </div>
                             )}
                         </div>
+
+                        <button
+                            type='button'
+                            onClick={handleDownloadTemplate}
+                            className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm text-sm"
+                        >
+                            <FileDown className="w-4 h-4 mr-2" />
+                            Download CSV
+                        </button>
+
+                        <button
+                            type='button'
+                            onClick={handleOpenImportModal}
+                            className="flex items-center px-4 py-2 bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors shadow-sm text-sm font-medium"
+                        >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Import CSV
+                        </button>
+
+                        <button
+                            type='button'
+                            onClick={() => handleOpenJobModal()}
+                            className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm text-sm"
+                        >
+                            <ListChecks className="w-4 h-4 mr-2" />
+                            Check Import Job
+                        </button>
 
                         <button  type='button'
                             onClick={handleAddNew}
@@ -1078,27 +1392,322 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     // Render form view
     const initialFormState = formDataForForm || emptyDestinationInitialData;
 
+    const importModal = !isImportModalOpen ? null : (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-4 py-8">
+            <div className="mx-auto max-w-2xl bg-white rounded-xl shadow-xl p-6 space-y-5">
+                <div className="flex items-start justify-between">
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900">Import destinations via CSV</h2>
+                        <p className="text-sm text-gray-500">Uploads to /admin/destination-imports (multipart)</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleCloseImportModal}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                        X
+                    </button>
+                </div>
+
+                <form className="space-y-4" onSubmit={handleSubmitImport}>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">CSV file</label>
+                        <input
+                            type="file"
+                            accept=".csv,text/csv"
+                            disabled={isUploadingImport}
+                            onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                        <p className="mt-2 text-xs text-gray-500">Use the template headers. Max 500 rows per upload.</p>
+                        {importFile && (
+                            <p className="mt-1 text-sm text-gray-700">
+                                Selected: {importFile.name}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <label className="flex items-center space-x-2 text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={importDryRun}
+                                disabled={isUploadingImport}
+                                onChange={(e) => setImportDryRun(e.target.checked)}
+                            />
+                            <span>Dry run (validation only)</span>
+                        </label>
+                        <label className="flex items-center space-x-2 text-sm text-gray-700">
+                            <input
+                                type="checkbox"
+                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                checked={importAutoSubmit}
+                                disabled={isUploadingImport}
+                                onChange={(e) => setImportAutoSubmit(e.target.checked)}
+                            />
+                            <span>Auto-submit drafts</span>
+                        </label>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Notes (optional)</label>
+                        <textarea
+                            rows={3}
+                            value={importNotes}
+                            disabled={isUploadingImport}
+                            onChange={(e) => setImportNotes(e.target.value)}
+                            placeholder="Add context for reviewers..."
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                    </div>
+
+                    {lastJobId && (
+                        <div className="text-xs text-gray-500">
+                            Last job:{' '}
+                            <button
+                                type="button"
+                                className="text-indigo-600 hover:underline"
+                                onClick={() => handleOpenJobModal(lastJobId)}
+                            >
+                                #{lastJobId}
+                            </button>
+                        </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                        <button
+                            type="button"
+                            onClick={handleDownloadTemplate}
+                            className="text-sm text-indigo-600 hover:text-indigo-700"
+                        >
+                            Download template
+                        </button>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={handleCloseImportModal}
+                                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isUploadingImport}
+                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                            >
+                                {isUploadingImport ? 'Uploading...' : 'Upload CSV'}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+
+    const statusColors: Record<string, string> = {
+        queued: 'bg-amber-100 text-amber-800',
+        processing: 'bg-blue-100 text-blue-800',
+        completed: 'bg-green-100 text-green-800',
+        failed: 'bg-red-100 text-red-800',
+    };
+    const visibleJobRows = jobRows.slice(0, 6);
+    const hasMoreJobRows = jobRows.length > visibleJobRows.length;
+
+    const jobModal = !isJobModalOpen ? null : (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 px-4 py-8">
+            <div className="mx-auto max-w-4xl bg-white rounded-xl shadow-xl p-6 space-y-5">
+                <div className="flex items-start justify-between">
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900">Import job status</h2>
+                        <p className="text-sm text-gray-500">Check /admin/destination-imports and download error CSVs.</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setIsJobModalOpen(false)}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                    >
+                        X
+                    </button>
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3 items-start">
+                    <div className="md:col-span-2 flex gap-2">
+                        <input
+                            type="text"
+                            value={jobIdInput}
+                            onChange={(e) => setJobIdInput(e.target.value)}
+                            placeholder="Enter job ID"
+                            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => fetchAndSetJob(jobIdInput)}
+                            disabled={jobLoading || !jobIdInput.trim()}
+                            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                        >
+                            {jobLoading ? 'Loading...' : 'Load Job'}
+                        </button>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleDownloadErrors}
+                        disabled={!jobDetails || (jobDetails.rows_failed ?? 0) === 0 || jobLoading}
+                        className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-60"
+                    >
+                        Download Errors CSV
+                    </button>
+                </div>
+
+                {jobStatusError && (
+                    <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2 text-sm text-red-700">
+                        {jobStatusError}
+                    </div>
+                )}
+
+                {jobDetails && (
+                    <div className="space-y-4">
+                        <div className="flex flex-wrap gap-3 items-center">
+                            <span
+                                className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                                    statusColors[(jobDetails.status ?? '').toLowerCase()] ?? 'bg-gray-100 text-gray-800'
+                                }`}
+                            >
+                                {jobDetails.status ?? 'unknown'}
+                            </span>
+                            {jobDetails.dry_run && (
+                                <span className="px-3 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">
+                                    Dry run
+                                </span>
+                            )}
+                            {jobDetails.dry_run === false && (
+                                <span className="px-3 py-1 text-xs font-semibold rounded-full bg-green-50 text-green-700">
+                                    Submit on upload
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-3">
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Total rows</p>
+                                <p className="text-lg font-semibold text-gray-900">{jobDetails.total_rows ?? '—'}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Processed</p>
+                                <p className="text-lg font-semibold text-gray-900">{jobDetails.processed_rows ?? '—'}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Failed</p>
+                                <p className="text-lg font-semibold text-red-700">{jobDetails.rows_failed ?? 0}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Changes created</p>
+                                <p className="text-lg font-semibold text-gray-900">{jobDetails.changes_created ?? '—'}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Pending change IDs</p>
+                                <p className="text-lg font-semibold text-gray-900">
+                                    {Array.isArray(jobDetails.pending_change_ids) ? jobDetails.pending_change_ids.length : '—'}
+                                </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Dry run</p>
+                                <p className="text-lg font-semibold text-gray-900">
+                                    {jobDetails.dry_run === undefined ? '—' : jobDetails.dry_run ? 'Yes' : 'No'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-3 md:grid-cols-2">
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Job ID</p>
+                                <p className="text-sm font-mono text-gray-800 break-all">{jobDetails.id}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Uploaded by</p>
+                                <p className="text-sm text-gray-800">{jobDetails.uploaded_by || '—'}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Submitted at</p>
+                                <p className="text-sm text-gray-800">{jobDetails.submitted_at || jobDetails.created_at || '—'}</p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-gray-50">
+                                <p className="text-xs text-gray-500">Completed at</p>
+                                <p className="text-sm text-gray-800">{jobDetails.completed_at || '—'}</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {jobLoading && !jobDetails && (
+                    <p className="text-sm text-gray-500">Loading job...</p>
+                )}
+
+                {visibleJobRows.length > 0 && (
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm text-gray-600">
+                            <span>Row summary</span>
+                            {hasMoreJobRows && (
+                                <span>Showing first {visibleJobRows.length} of {jobRows.length}</span>
+                            )}
+                        </div>
+                        <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                            <table className="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Row #</th>
+                                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Change ID</th>
+                                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Error</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200">
+                                    {visibleJobRows.map((row, idx) => (
+                                        <tr key={row.id ?? `row-${row.row_number ?? idx}`}>
+                                            <td className="px-3 py-2 text-gray-800">{row.row_number ?? '—'}</td>
+                                            <td className="px-3 py-2 text-gray-800">{row.status ?? '—'}</td>
+                                            <td className="px-3 py-2 text-gray-800 break-all">{row.change_id ?? '—'}</td>
+                                            <td className="px-3 py-2 text-gray-600">{row.error ?? '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    const overlays = (
+        <>
+            {importModal}
+            {jobModal}
+            <ConfirmPopup
+                isVisible={isConfirmVisible}
+                title={confirmAction?.title || 'Confirm'}
+                message={confirmAction?.message || 'Are you sure?'}
+                onConfirm={() => {
+                    if (confirmAction?.confirmText === 'OK') {
+                        handleConfirmClose();
+                    } else if (confirmAction?.handler) {
+                        confirmAction.handler();
+                    }
+                }}
+                onCancel={handleConfirmClose} 
+                confirmText={confirmAction?.confirmText}
+                cancelText={confirmAction?.cancelText}
+                confirmButtonClass={confirmAction?.confirmButtonClass}
+            />
+        </>
+    );
+
 
     if (viewMode === 'list') {
         return (
             <>
                 {listView}
-                <ConfirmPopup
-                    isVisible={isConfirmVisible}
-                    title={confirmAction?.title || 'Confirm'}
-                    message={confirmAction?.message || 'Are you sure?'}
-                    onConfirm={() => {
-                        if (confirmAction?.confirmText === 'OK') {
-                            handleConfirmClose();
-                        } else if (confirmAction?.handler) {
-                            confirmAction.handler();
-                        }
-                    }}
-                    onCancel={handleConfirmClose} 
-                    confirmText={confirmAction?.confirmText}
-                    cancelText={confirmAction?.cancelText}
-                    confirmButtonClass={confirmAction?.confirmButtonClass}
-                />
+                {overlays}
             </>
         );
     }
@@ -1118,22 +1727,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                     />
                 </div>
             </div>
-            <ConfirmPopup
-                isVisible={isConfirmVisible}
-                title={confirmAction?.title || 'Confirm'}
-                message={confirmAction?.message || 'Are you sure?'}
-                onConfirm={() => {
-                    if (confirmAction?.confirmText === 'OK') {
-                        handleConfirmClose();
-                    } else if (confirmAction?.handler) {
-                        confirmAction.handler();
-                    }
-                }}
-                onCancel={handleConfirmClose} 
-                confirmText={confirmAction?.confirmText}
-                cancelText={confirmAction?.cancelText}
-                confirmButtonClass={confirmAction?.confirmButtonClass}
-            />
+            {overlays}
         </>
     );
 };

@@ -570,3 +570,154 @@ export async function uploadDestinationHeroImage(changeId: string, file: File): 
   });
   return (await response.json()) as MediaUploadResponse;
 }
+
+export interface DestinationImportTemplate {
+  headers: string[];
+  sample_row?: string[];
+}
+
+export interface DestinationImportTemplateResponse {
+  template: DestinationImportTemplate;
+}
+
+export type DestinationImportStatus = "queued" | "processing" | "completed" | "failed";
+
+export interface DestinationImportJob {
+  id: string;
+  status?: DestinationImportStatus;
+  dry_run?: boolean;
+  file_key?: string;
+  error_csv_key?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+  submitted_at?: string;
+  completed_at?: string;
+  uploaded_by?: string;
+  total_rows?: number;
+  processed_rows?: number;
+  rows_failed?: number;
+  changes_created?: number;
+  pending_change_ids?: string[];
+}
+
+export interface DestinationImportRow {
+  id?: string;
+  job_id?: string;
+  row_number?: number;
+  action?: string;
+  destination_id?: string;
+  change_id?: string;
+  status?: "pending_review" | "skipped" | "failed";
+  error?: string;
+  payload?: DestinationChangeFields;
+}
+
+export interface DestinationImportResponse {
+  job: DestinationImportJob;
+  rows?: DestinationImportRow[];
+}
+
+export interface UploadDestinationImportParams {
+  dry_run?: boolean;
+  submit?: boolean;
+  notes?: string;
+}
+
+export async function fetchDestinationImportTemplate(): Promise<DestinationImportTemplateResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-imports/template`, {
+    method: "GET",
+  });
+
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  const raw = await response.text();
+
+  const parseCsvRow = (row: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < row.length; i++) {
+      const char = row[i];
+      if (char === '"' && inQuotes && row[i + 1] === '"') {
+        current += '"';
+        i++;
+        continue;
+      }
+      if (char === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+      if (char === "," && !inQuotes) {
+        result.push(current);
+        current = "";
+        continue;
+      }
+      current += char;
+    }
+    result.push(current);
+    return result;
+  };
+
+  // Prefer JSON if provided
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(raw) as DestinationImportTemplateResponse;
+    } catch {
+      throw new Error("Unable to parse template response.");
+    }
+  }
+
+  // Accept CSV/plain responses and adapt to the JSON shape
+  const looksLikeCsv = contentType.includes("text/csv") || contentType.includes("text/plain") || raw.trim().startsWith("slug,");
+  if (looksLikeCsv) {
+    const lines = raw.trim().split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) {
+      throw new Error("Template endpoint returned an empty CSV.");
+    }
+    const headers = parseCsvRow(lines[0]);
+    const sampleRow = lines[1] ? parseCsvRow(lines[1]) : [];
+    return { template: { headers, sample_row: sampleRow } };
+  }
+
+  throw new Error(raw || "Template endpoint did not return JSON or CSV.");
+}
+
+export async function uploadDestinationImport(
+  file: File,
+  params: UploadDestinationImportParams = {}
+): Promise<DestinationImportResponse> {
+  const query = new URLSearchParams();
+  if (params.dry_run) query.set("dry_run", "true");
+  if (params.submit === false) query.set("submit", "false");
+
+  const queryString = query.toString();
+  const url = `${API_BASE_URL}/api/v1/admin/destination-imports${queryString ? `?${queryString}` : ""}`;
+
+  const formData = new FormData();
+  formData.append("file", file);
+  if (params.notes) {
+    formData.append("notes", params.notes);
+  }
+
+  const response = await fetchWithAuth(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  return (await response.json()) as DestinationImportResponse;
+}
+
+export async function fetchDestinationImportJob(jobId: string): Promise<DestinationImportResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-imports/${jobId}`, {
+    method: "GET",
+  });
+  return (await response.json()) as DestinationImportResponse;
+}
+
+export async function downloadDestinationImportErrors(jobId: string): Promise<Blob> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-imports/${jobId}/errors`, {
+    method: "GET",
+    headers: { Accept: "text/csv", "Content-Type": "" },
+  });
+  return await response.blob();
+}
