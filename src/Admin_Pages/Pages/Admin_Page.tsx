@@ -1,16 +1,19 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Destination_Management from "./Destination_Management";
 import Destination_Request from "./Destination_Request";
 import AdminDashboard from "./AdminDashboard";
 import Sidebar from "../Admin_Component/Sidebar";
+import { logout } from "../../services/auth/authService";
 
 export default function Admin_Page() {
   // 🛠️ ตั้งค่าเริ่มต้นเป็น 'destinations' เพื่อให้เห็นหน้า Destination Management ทันที
   const [activePage, setActivePage] = useState('destinations'); 
+  const navigate = useNavigate();
 
   const handleSignOut = () => {
-    console.log("User signed out!");
-    // Logic การออกจากระบบจริงจะอยู่ที่นี่
+    logout();
+    navigate("/");
   };
 
   const renderContent = () => {
