@@ -13,11 +13,12 @@ import type {
 export async function searchDestinations(
   query: string,
   limit: number = 5,
-  filters?: SearchFilters
+  filters?: SearchFilters,
+  offset: number = 0
 ): Promise<DestinationsResponse> {
   const params = new URLSearchParams({
     limit: limit.toString(),
-    offset: "0",
+    offset: Math.max(0, offset).toString(),
   });
 
   // Only add query param if not empty
@@ -44,7 +45,6 @@ export async function searchDestinations(
   }
 
   const url = `${API_BASE_URL}/api/v1/destinations?${params.toString()}`;
-  console.log("[DEBUG] Searching destinations:", url);
 
   try {
     const response = await fetch(url, {
@@ -54,19 +54,13 @@ export async function searchDestinations(
       },
     });
 
-    console.log("[DEBUG] Response status:", response.status);
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[DEBUG] Error response:", errorText);
       throw new Error(`Failed to search destinations: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log("[DEBUG] Search results:", data);
     return data;
   } catch (error) {
-    console.error("[DEBUG] Search error:", error);
     throw error;
   }
 }
