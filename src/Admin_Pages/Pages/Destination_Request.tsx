@@ -39,6 +39,15 @@ const requestStatusOptions: DropdownOption[] = [
   { value: "DELETE", label: "Delete" },
 ] as const;
 
+const pageSizeOptions = [25, 50, 100, 200];
+
+const getPageNumbers = (current: number, total: number): number[] => {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  if (current <= 3) return [1, 2, 3, 4, 5];
+  if (current >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
+  return [current - 2, current - 1, current, current + 1, current + 2];
+};
+
 const sortOptions = [
   { value: "id_asc", label: "Destination ID (Low-High)" },
   { value: "id_desc", label: "Destination ID (High-Low)" },
@@ -121,6 +130,9 @@ const DestinationRequestPage = () => {
   const [sortBy, setSortBy] = useState<(typeof sortOptions)[number]["value"]>("id_asc");
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState<RequestStatus | "">("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalRequests, setTotalRequests] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -171,19 +183,22 @@ const DestinationRequestPage = () => {
       try {
         const response = await fetchDestinationChanges({
           status: "pending_review",
-          limit: 50,
-          offset: 0,
+          limit: pageSize,
+          offset: (page - 1) * pageSize,
           destination_id: destinationId,
         });
         setRequests(response.changes.map(mapChangeToRequest));
+        const meta = response.meta ?? {};
+        setTotalRequests((meta as { total?: number; count?: number }).total ?? meta.count ?? response.changes.length ?? 0);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unable to load destination requests.";
         setApiError(message);
+        setTotalRequests(0);
       } finally {
         setIsLoading(false);
       }
     },
-    []
+    [page, pageSize]
   );
 
   const loadRequestDetails = useCallback(async (requestId: string) => {
@@ -248,8 +263,20 @@ const DestinationRequestPage = () => {
   }, [requests, searchTerm, sortBy, filterType, filterStatus]);
 
   useEffect(() => {
-    setSelectedIds((prev) => prev.filter((id) => filteredRequests.some((request) => request.id === id)));
-  }, [filteredRequests]);
+    setPage(1);
+  }, [searchTerm, sortBy, filterType, filterStatus, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(totalRequests / pageSize));
+
+  useEffect(() => {
+    setPage((prev) => Math.min(prev, totalPages));
+  }, [totalPages]);
+
+  const paginatedRequests = filteredRequests;
+
+  useEffect(() => {
+    setSelectedIds((prev) => prev.filter((id) => paginatedRequests.some((request) => request.id === id)));
+  }, [paginatedRequests]);
 
   useEffect(() => {
     if (!activeRequestId) {
@@ -279,13 +306,13 @@ const DestinationRequestPage = () => {
     };
   }, [isSortOpen, isFilterOpen]);
 
-  const isAllSelected = filteredRequests.length > 0 && filteredRequests.every((request) => selectedIds.includes(request.id));
+  const isAllSelected = paginatedRequests.length > 0 && paginatedRequests.every((request) => selectedIds.includes(request.id));
 
   const toggleSelectAll = () => {
     if (isAllSelected) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(filteredRequests.map((request) => request.id));
+      setSelectedIds(paginatedRequests.map((request) => request.id));
     }
   };
 
@@ -540,14 +567,14 @@ const DestinationRequestPage = () => {
                   Loading destination requests...
                 </td>
               </tr>
-            ) : filteredRequests.length === 0 ? (
+            ) : paginatedRequests.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-6 py-10 text-center text-gray-500">
                   No destination requests found.
                 </td>
               </tr>
             ) : (
-              filteredRequests.map((request, index) => (
+              paginatedRequests.map((request, index) => (
                 <tr
                   key={`${request.id}-${index}`}
                   onClick={() => {
@@ -586,6 +613,71 @@ const DestinationRequestPage = () => {
             )}
           </tbody>
         </table>
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <span>Rows per page:</span>
+            <select
+              className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              {pageSizeOptions.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <button
+              type="button"
+              className={`px-2 py-1 rounded ${page === 1 ? "text-gray-400 cursor-not-allowed" : "hover:bg-gray-200"}`}
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+            >
+              First
+            </button>
+            <button
+              type="button"
+              className={`px-2 py-1 rounded ${page === 1 ? "text-gray-400 cursor-not-allowed" : "hover:bg-gray-200"}`}
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+            >
+              Prev
+            </button>
+            {getPageNumbers(page, totalPages).map((pageNum) => (
+              <button
+                type="button"
+                key={pageNum}
+                className={`px-3 py-1 rounded ${pageNum === page ? "bg-indigo-600 text-white cursor-default" : "hover:bg-gray-200"}`}
+                onClick={() => setPage(pageNum)}
+                disabled={pageNum === page}
+              >
+                {pageNum}
+              </button>
+            ))}
+            <button
+              type="button"
+              className={`px-2 py-1 rounded ${page === totalPages ? "text-gray-400 cursor-not-allowed" : "hover:bg-gray-200"}`}
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+            >
+              Next
+            </button>
+            <button
+              type="button"
+              className={`px-2 py-1 rounded ${page === totalPages ? "text-gray-400 cursor-not-allowed" : "hover:bg-gray-200"}`}
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+            >
+              Last
+            </button>
+          </div>
+          <div className="text-sm text-gray-600">Page {page} of {totalPages} · {totalRequests} items</div>
+        </div>
       </div>
 
       {lastActionMessage && (
