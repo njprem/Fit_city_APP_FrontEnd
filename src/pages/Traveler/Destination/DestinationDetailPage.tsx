@@ -9,8 +9,9 @@ import {
   getDestinationReviews,
   createDestinationReview,
   deleteDestinationReview,
+  getDestinationViews,
 } from "../../../services/auth/destinationService";
-import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Star, StarHalf, MapPin, Phone, Clock, Heart, X, ChevronLeft, ChevronRight, Pencil, Trash2, Eye } from "lucide-react";
 import { addFavorite, removeFavoriteByDestinationId, loadFavorites } from "../../../services/favoritesService";
 import { getToken, getUser } from "../../../services/auth/authService";
 import type { AuthUser } from "../../../services/auth/authService";
@@ -363,6 +364,7 @@ export default function DestinationDetailPage() {
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewDeleting, setReviewDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [viewCount, setViewCount] = useState<number | null>(null);
 
   // Keyboard controls for lightbox (ESC close, arrows navigate)
   useEffect(() => {
@@ -560,6 +562,17 @@ export default function DestinationDetailPage() {
         // --- ดึงรีวิว ---
         const rawReviews = await getDestinationReviews(safeId);
         const adaptedReviews = adaptReviewItems(rawReviews);
+        try {
+          const views = await getDestinationViews(safeId, "all");
+          const totalViews =
+            (views.views?.all ?? views.views?.all_time)?.total_views ??
+            Object.values(views.views ?? {}).find((v) => typeof v?.total_views === "number")?.total_views ??
+            null;
+          setViewCount(typeof totalViews === "number" && !Number.isNaN(totalViews) ? totalViews : null);
+        } catch (err) {
+          console.error("Failed to load destination views", err);
+          setViewCount(null);
+        }
 
         if (!isCancelled) {
           setDestination(adapted);
@@ -702,13 +715,19 @@ export default function DestinationDetailPage() {
             </h1>
 
             {(typeof ratingValue === "number" || typeof reviewCount === "number") && (
-              <div className="mt-1 flex items-center gap-2 text-sm text-slate-700">
+              <div className="mt-1 flex items-center gap-3 text-sm text-slate-700 flex-wrap">
                 {typeof ratingValue === "number" && <RatingStars rating={ratingValue} />}
                 {typeof ratingValue === "number" && (
                   <span className="leading-none">{ratingValue.toFixed(1)}</span>
                 )}
                 {typeof reviewCount === "number" && (
                   <span className="text-slate-500">({reviewCount} reviews)</span>
+                )}
+                {typeof viewCount === "number" && (
+                  <span className="inline-flex items-center gap-1 text-slate-500">
+                    <Eye className="w-4 h-4" />
+                    <span>{viewCount.toLocaleString()} views</span>
+                  </span>
                 )}
               </div>
             )}

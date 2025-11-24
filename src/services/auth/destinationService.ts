@@ -237,3 +237,36 @@ export async function deleteDestinationReview(
 
   throw lastError ?? new Error("Failed to delete review");
 }
+
+export interface DestinationViewCount {
+  total_views?: number;
+  unique_users?: number;
+  unique_ips?: number;
+  last_updated_at?: string;
+}
+
+export interface DestinationViewsResponse {
+  destination_id?: string;
+  name?: string;
+  city?: string;
+  country?: string;
+  views?: Record<string, DestinationViewCount>;
+}
+
+export async function getDestinationViews(
+  identifier: string,
+  range: string = "all"
+): Promise<DestinationViewsResponse> {
+  const url = `${API_BASE_URL}/api/v1/destinations/${identifier}/views?range=${encodeURIComponent(range)}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Failed to fetch destination views (${response.status})`);
+  }
+
+  return (await response.json()) as DestinationViewsResponse;
+}
