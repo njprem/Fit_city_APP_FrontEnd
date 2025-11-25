@@ -241,7 +241,7 @@ const ReportingPage: React.FC = () => {
     }, [selectedDestination, statsRange]);
 
     const processedDestinations = useMemo(() => {
-        let result = [...destinations];
+        const result = [...destinations];
         result.sort((a, b) => {
             switch (sortBy) {
                 case 'name_asc':

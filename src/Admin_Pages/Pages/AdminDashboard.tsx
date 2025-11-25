@@ -20,7 +20,7 @@ const AdminDashboard: React.FC = () => {
         loading="lazy"
         allow="fullscreen; clipboard-write; cross-origin-isolated"
         allowFullScreen
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-downloads"
+        sandbox="allow-scripts allow-forms allow-popups"
       />
     </div>
   );
