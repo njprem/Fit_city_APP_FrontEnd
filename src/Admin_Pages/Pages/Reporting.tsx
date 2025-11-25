@@ -145,6 +145,54 @@ const ReportingPage: React.FC = () => {
     const [statsData, setStatsData] = useState<DestinationStatsViewsResponse | null>(null);
     const [isStatsLoading, setIsStatsLoading] = useState(false);
     const [statsError, setStatsError] = useState<string | null>(null);
+    const normalizedViews = useMemo(() => {
+        if (!statsData) return null;
+
+        const views = (statsData.views ?? {}) as Record<string, unknown>;
+        const fallback = statsData as Record<string, unknown>;
+
+        // Support range buckets under views (e.g., views.all.total_views)
+        const rangeKey = statsRange || 'all';
+        const rangeBucket = (views[rangeKey] ?? {}) as Record<string, unknown>;
+
+        const totalViews =
+            (rangeBucket.total_views as number | undefined) ??
+            (rangeBucket.totalViews as number | undefined) ??
+            (views.total_views as number | undefined) ??
+            (views.totalViews as number | undefined) ??
+            (fallback.total_views as number | undefined) ??
+            (fallback.totalViews as number | undefined);
+
+        const uniqueUsers =
+            (rangeBucket.unique_users as number | undefined) ??
+            (rangeBucket.uniqueUsers as number | undefined) ??
+            (views.unique_users as number | undefined) ??
+            (views.uniqueUsers as number | undefined) ??
+            (fallback.unique_users as number | undefined) ??
+            (fallback.uniqueUsers as number | undefined);
+
+        const uniqueIps =
+            (rangeBucket.unique_ips as number | undefined) ??
+            (rangeBucket.uniqueIps as number | undefined) ??
+            (views.unique_ips as number | undefined) ??
+            (views.uniqueIps as number | undefined) ??
+            (fallback.unique_ips as number | undefined) ??
+            (fallback.uniqueIps as number | undefined);
+
+        const lastUpdated =
+            (rangeBucket.last_updated_at as string | undefined) ??
+            (rangeBucket.lastUpdatedAt as string | undefined) ??
+            (views.last_updated_at as string | undefined) ??
+            (views.lastUpdatedAt as string | undefined) ??
+            (fallback.last_updated_at as string | undefined) ??
+            (fallback.lastUpdatedAt as string | undefined);
+
+        if (totalViews === undefined && uniqueUsers === undefined && uniqueIps === undefined) {
+            return { totalViews: undefined, uniqueUsers: undefined, uniqueIps: undefined, lastUpdated: undefined };
+        }
+
+        return { totalViews, uniqueUsers, uniqueIps, lastUpdated };
+    }, [statsData, statsRange]);
 
     const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
     const [isSortOpen, setIsSortOpen] = useState(false);
@@ -596,27 +644,27 @@ const ReportingPage: React.FC = () => {
                     </div>
                 )}
                 {!isStatsLoading && statsError && <p className="text-sm text-red-600">{statsError}</p>}
-                {!isStatsLoading && !statsError && statsData && (
+                {!isStatsLoading && !statsError && normalizedViews && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="p-4 rounded-lg border border-gray-100 bg-gray-50">
                             <p className="text-sm text-gray-500">Total Views</p>
-                            <p className="text-2xl font-bold text-gray-900">{statsData.views?.total_views ?? '—'}</p>
+                            <p className="text-2xl font-bold text-gray-900">{normalizedViews.totalViews ?? '—'}</p>
                         </div>
                         <div className="p-4 rounded-lg border border-gray-100 bg-gray-50">
                             <p className="text-sm text-gray-500">Unique Users</p>
-                            <p className="text-2xl font-bold text-gray-900">{statsData.views?.unique_users ?? '—'}</p>
+                            <p className="text-2xl font-bold text-gray-900">{normalizedViews.uniqueUsers ?? '—'}</p>
                         </div>
                         <div className="p-4 rounded-lg border border-gray-100 bg-gray-50">
                             <p className="text-sm text-gray-500">Unique IPs</p>
-                            <p className="text-2xl font-bold text-gray-900">{statsData.views?.unique_ips ?? '—'}</p>
+                            <p className="text-2xl font-bold text-gray-900">{normalizedViews.uniqueIps ?? '—'}</p>
                         </div>
                     </div>
                 )}
-                {!isStatsLoading && !statsError && !statsData && (
+                {!isStatsLoading && !statsError && !normalizedViews && (
                     <p className="text-sm text-gray-500">No statistics available for this destination.</p>
                 )}
-                {statsData?.views?.last_updated_at && (
-                    <p className="text-xs text-gray-400">Last updated: {new Date(statsData.views.last_updated_at).toLocaleString()}</p>
+                {normalizedViews?.lastUpdated && (
+                    <p className="text-xs text-gray-400">Last updated: {new Date(normalizedViews.lastUpdated).toLocaleString()}</p>
                 )}
             </div>
 
