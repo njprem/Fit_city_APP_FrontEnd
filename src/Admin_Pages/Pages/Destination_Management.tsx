@@ -8,7 +8,7 @@ import DestinationForm from '../Admin_Component/Destination_Form';
 import { emptyDestinationInitialData, type DestinationFormData } from '../Admin_Component/destinationFormData';
 import StatusPill, { type StatusType } from '../Admin_Component/StatusPill';
 import ActionMenu, { type ActionOption } from '../Admin_Component/ActionMenu';
-import { createDestinationChange, fetchDestinationChanges, fetchDestinationImportJob, fetchDestinationImportTemplate, fetchPublishedDestinations, submitDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, uploadDestinationImport, downloadDestinationImportErrors, type DestinationChange, type DestinationChangeDetailResponse, type DestinationChangeFields, type DestinationImportJob, type DestinationImportRow } from '../../api';
+import { createDestinationChange, fetchDestinationChanges, fetchDestinationImportJob, fetchDestinationImportTemplate, updateDestinationChange, fetchPublishedDestinations, submitDestinationChange, uploadDestinationGallery, uploadDestinationHeroImage, uploadDestinationImport, downloadDestinationImportErrors, type DestinationChange, type DestinationChangeDetailResponse, type DestinationChangeFields, type DestinationImportJob, type DestinationImportRow } from '../../api';
 import type { Destination as TravelerDestination } from '../../types/destination';
 
 interface DestinationManagementProps {
@@ -299,6 +299,8 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
     const [viewMode, setViewMode] = useState<'list' | 'add' | 'edit' | 'view'>('list'); 
     const [formDataForForm, setFormDataForForm] = useState<DestinationFormData | null>(null); // Data passed to DestinationForm
     const [editingDestinationId, setEditingDestinationId] = useState<string | null>(null);
+    const [editingChangeRequestId, setEditingChangeRequestId] = useState<string | null>(null);
+    const [editingDraftVersion, setEditingDraftVersion] = useState<number | null>(null);
     const [isConfirmVisible, setIsConfirmVisible] = useState(false);
     const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; handler: () => void; confirmText?: string; cancelText?: string; confirmButtonClass?: string } | null>(null);
     const [isSortOpen, setIsSortOpen] = useState(false); 
@@ -977,6 +979,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                 setViewMode('list'); 
                                 setFormDataForForm(null);
                                 setEditingDestinationId(null);
+                                setEditingChangeRequestId(null);
                             }
                         });
                     } catch (error) {
@@ -1027,8 +1030,14 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                 return;
             }
             setEditingDestinationId(resolvedDestinationId);
+            setEditingChangeRequestId(changeRequestId);
+            setEditingDraftVersion(
+                typeof destination.change?.draft_version === 'number' ? destination.change.draft_version : null
+            );
         } else {
             setEditingDestinationId(null);
+            setEditingChangeRequestId(null);
+            setEditingDraftVersion(null);
         }
 
 
@@ -1052,6 +1061,8 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
 
     const handleAddNew = () => {
         setEditingDestinationId(null);
+        setEditingChangeRequestId(null);
+        setEditingDraftVersion(null);
         openForm('add');
     };
 
@@ -1130,21 +1141,30 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                             setDraftReloadToken(prev => prev + 1);
                             setActiveTab('draft');
                         } else if (viewMode === 'edit') {
-                            const resolvedDestinationId =
-                                editingDestinationId ??
-                                (data.id !== null && data.id !== undefined ? String(data.id) : null);
-                            if (!resolvedDestinationId) {
-                                throw new Error('Missing destination id for update.');
+                            if (editingChangeRequestId) {
+                                await updateDestinationChange(editingChangeRequestId, {
+                                    draft_version: editingDraftVersion ?? undefined,
+                                    fields: detailsFromForm,
+                                });
+                                await uploadImagesIfNeeded(editingChangeRequestId);
+                                setDraftReloadToken(prev => prev + 1);
+                            } else {
+                                const resolvedDestinationId =
+                                    editingDestinationId ??
+                                    (data.id !== null && data.id !== undefined ? String(data.id) : null);
+                                if (!resolvedDestinationId) {
+                                    throw new Error('Missing destination id for update.');
+                                }
+                                const res = await createDestinationChange({
+                                    action: 'update',
+                                    destination_id: resolvedDestinationId,
+                                    fields: detailsFromForm,
+                                });
+                                const changeId = res.change_request.id;
+                                await uploadImagesIfNeeded(changeId);
+                                setDraftReloadToken(prev => prev + 1);
+                                setActiveTab('draft');
                             }
-                            const res = await createDestinationChange({
-                                action: 'update',
-                                destination_id: resolvedDestinationId,
-                                fields: detailsFromForm,
-                            });
-                            const changeId = res.change_request.id;
-                            await uploadImagesIfNeeded(changeId);
-                            setDraftReloadToken(prev => prev + 1);
-                            setActiveTab('draft');
                         }
 
                         setConfirmAction({
@@ -1158,7 +1178,8 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                         setViewMode('list'); 
                         setFormDataForForm(null);
                         setEditingDestinationId(null);
-                        setEditingDestinationId(null);
+                        setEditingChangeRequestId(null);
+                        setEditingDraftVersion(null);
                     }
                 });
                     } catch (error) {
@@ -1185,6 +1206,8 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
         setViewMode('list');
         setFormDataForForm(null);
         setEditingDestinationId(null);
+        setEditingChangeRequestId(null);
+        setEditingDraftVersion(null);
     };
 
     const handleConfirmClose = () => {

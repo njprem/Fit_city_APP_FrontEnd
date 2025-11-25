@@ -187,6 +187,59 @@ export async function getDestinationReviewById(id: string): Promise<DestinationR
   return (await res.json()) as DestinationReviewsPayload;
 }
 
+export interface DestinationStatsViewsResponse {
+  destination_id: string;
+  name?: string;
+  city?: string;
+  country?: string;
+  views?: {
+    last_updated_at?: string;
+    total_views?: number;
+    unique_ips?: number;
+    unique_users?: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface DestinationStatsViewsQuery {
+  destination_id: string;
+  range?: "1h" | "6h" | "12h" | "24h" | "7d" | "30d" | "all";
+}
+
+export async function fetchDestinationStatsViews({
+  destination_id,
+  range,
+}: DestinationStatsViewsQuery): Promise<DestinationStatsViewsResponse> {
+  const searchParams = new URLSearchParams({ destination_id });
+  if (range && range !== "all") {
+    searchParams.set("range", range);
+  }
+
+  const response = await fetchWithAuth(
+    `${API_BASE_URL}/api/v1/admin/destination-stats/views?${searchParams.toString()}`,
+    {
+      method: "GET",
+    }
+  );
+
+  return (await response.json()) as DestinationStatsViewsResponse;
+}
+
+export async function exportDestinationStats(destinationIds?: string[]): Promise<string> {
+  const body =
+    Array.isArray(destinationIds) && destinationIds.length > 0
+      ? { destination_ids: destinationIds }
+      : {};
+
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-stats/export`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  return await response.text();
+}
+
 export interface PublishedDestinationsQuery {
   limit?: number;
   offset?: number;

@@ -16,9 +16,10 @@ interface DestinationFormProps {
     onDelete?: (id: number | string) => void; 
     isLoading?: boolean; // disable inputs while detail is being fetched
     externalErrors?: Record<string, string>;
+    hideExitButton?: boolean;
 }
 
-const DestinationForm: React.FC<DestinationFormProps> = ({ data, viewMode, onChange, onSave, onCancel, onDelete, isLoading = false, externalErrors = {} }) => {
+const DestinationForm: React.FC<DestinationFormProps> = ({ data, viewMode, onChange, onSave, onCancel, onDelete, isLoading = false, externalErrors = {}, hideExitButton = false }) => {
     const [imageFiles, setImageFiles] = useState<File[]>(data.imageFiles || []);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const hasFormId = data.id !== null && data.id !== undefined && data.id !== '';
@@ -141,13 +142,15 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ data, viewMode, onCha
                             <Trash2 className="w-6 h-6" />
                         </button>
                     )}
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors shadow-sm font-medium"
-                    >
-                        Exit
-                    </button>
+                    {!hideExitButton && (
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors shadow-sm font-medium"
+                        >
+                            Exit
+                        </button>
+                    )}
                     {!isViewMode && ( 
                         <button
                             type="submit"

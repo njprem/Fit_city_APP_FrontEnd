@@ -3,13 +3,23 @@ import { useNavigate } from "react-router-dom";
 import Destination_Management from "./Destination_Management";
 import Destination_Request from "./Destination_Request";
 import AdminDashboard from "./AdminDashboard";
+import Reporting from "./Reporting";
 import Sidebar from "../Admin_Component/Sidebar";
 import { logout } from "../../services/auth/authService";
+import { getUser } from "../../services/auth/authService";
 
 export default function Admin_Page() {
   // 🛠️ ตั้งค่าเริ่มต้นเป็น 'destinations' เพื่อให้เห็นหน้า Destination Management ทันที
   const [activePage, setActivePage] = useState('destinations'); 
   const navigate = useNavigate();
+  const user = getUser();
+  const adminName =
+    user?.full_name ||
+    user?.fullName ||
+    user?.name ||
+    `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() ||
+    "Administrator";
+  const adminEmail = user?.email ?? user?.username ?? "admin@fitcity.app";
 
   const handleSignOut = () => {
     logout();
@@ -28,6 +38,8 @@ export default function Admin_Page() {
         );
       case 'requests':
         return <Destination_Request />;
+      case 'reporting':
+        return <Reporting />;
       default:
         return (
           <div className="flex-1 p-8 bg-gray-100">
@@ -50,6 +62,8 @@ export default function Admin_Page() {
           activeKey={activePage} 
           onMenuClick={setActivePage} 
           onSignOut={handleSignOut}
+          adminName={adminName}
+          adminEmail={adminEmail}
         />
       </div>
 
