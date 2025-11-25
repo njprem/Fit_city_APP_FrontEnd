@@ -13,6 +13,7 @@ import SearchResultsPage from "./pages/Traveler/Search/SearchResultsPage";
 import RequireAuth from "./components/RequireAuth";
 import UnauthorizedPage from "./pages/LandingPage/UnauthorizedPage";
 import DestinationSlugRedirect from "./pages/Traveler/Destination/DestinationSlugRedirect";
+import NotFoundPage from "./pages/NotFoundPage";
 
 
 import Admin_Page from "./Admin_Pages/Pages/Admin_Page";
@@ -32,11 +33,13 @@ export default function App() {
           <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/destination/:id" element={<DestinationDetailPage />} />
           <Route path="/destination/slug/:slug" element={<DestinationSlugRedirect />} />
+          <Route path="/destination" element={<DestinationSlugRedirect />} />
           <Route element={<RequireAuth />}>
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/favorite" element={<FavoritePage />} />
             <Route path="/admin" element={<Admin_Page />} />
           </Route>
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Router>
     </>

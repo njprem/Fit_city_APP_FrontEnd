@@ -13,11 +13,12 @@ import type {
 export async function searchDestinations(
   query: string,
   limit: number = 5,
-  filters?: SearchFilters
+  filters?: SearchFilters,
+  offset: number = 0
 ): Promise<DestinationsResponse> {
   const params = new URLSearchParams({
     limit: limit.toString(),
-    offset: "0",
+    offset: Math.max(0, offset).toString(),
   });
 
   // Only add query param if not empty
@@ -44,31 +45,20 @@ export async function searchDestinations(
   }
 
   const url = `${API_BASE_URL}/api/v1/destinations?${params.toString()}`;
-  console.log("[DEBUG] Searching destinations:", url);
 
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
-    console.log("[DEBUG] Response status:", response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("[DEBUG] Error response:", errorText);
-      throw new Error(`Failed to search destinations: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log("[DEBUG] Search results:", data);
-    return data;
-  } catch (error) {
-    console.error("[DEBUG] Search error:", error);
-    throw error;
+  if (!response.ok) {
+    throw new Error(`Failed to search destinations: ${response.status} ${response.statusText}`);
   }
+
+  const data = await response.json();
+  return data;
 }
 
 export async function getDestination(
@@ -236,4 +226,37 @@ export async function deleteDestinationReview(
   }
 
   throw lastError ?? new Error("Failed to delete review");
+}
+
+export interface DestinationViewCount {
+  total_views?: number;
+  unique_users?: number;
+  unique_ips?: number;
+  last_updated_at?: string;
+}
+
+export interface DestinationViewsResponse {
+  destination_id?: string;
+  name?: string;
+  city?: string;
+  country?: string;
+  views?: Record<string, DestinationViewCount>;
+}
+
+export async function getDestinationViews(
+  identifier: string,
+  range: string = "all"
+): Promise<DestinationViewsResponse> {
+  const url = `${API_BASE_URL}/api/v1/destinations/${identifier}/views?range=${encodeURIComponent(range)}`;
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || `Failed to fetch destination views (${response.status})`);
+  }
+
+  return (await response.json()) as DestinationViewsResponse;
 }

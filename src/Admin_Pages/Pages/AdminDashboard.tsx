@@ -1,145 +1,55 @@
-// src/App.tsx
-type DashboardCardProps = {
-  title: string;
-  value: number | string;
-  subtitle?: string;
+import React, { useMemo } from "react";
+
+const FALLBACK_URL =
+  "https://kibana.dev.kaminjitt.com/app/dashboards#/view/0e2de6a7-70d8-4a39-9cf0-ef067697779c?_g=(refreshInterval:(pause:!t,value:60000),time:(from:now-15m,to:now))&_a=()";
+
+// Kibana embed sized to fill the available admin content area.
+const AdminDashboard: React.FC = () => {
+  const embedUrl = useMemo(() => import.meta.env.VITE_KIBANA_EMBED_URL || FALLBACK_URL, []);
+  const isMixedContent =
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    embedUrl.toLowerCase().startsWith("http://");
+
+  const iframe = (
+    <div className="relative w-full h-[calc(100vh-160px)] min-h-[520px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <iframe
+        title="Admin analytics dashboard"
+        src={embedUrl}
+        className="absolute inset-0 h-full w-full"
+        loading="lazy"
+        allow="fullscreen; clipboard-write; cross-origin-isolated"
+        allowFullScreen
+        sandbox="allow-scripts allow-forms allow-popups"
+      />
+    </div>
+  );
+
+  return (
+    <section className="flex flex-col flex-1 min-h-screen bg-gray-50 p-6 gap-4">
+      <header className="space-y-1">
+        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
+        <p className="text-sm text-gray-500">Live analytics from Kibana</p>
+      </header>
+
+      <div className="flex-1 space-y-3">
+        {isMixedContent && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            The dashboard URL uses <code>http://</code> while this page is served over HTTPS. Browsers block
+            mixed content, so the embed may not render. Please expose Kibana over HTTPS or proxy it behind the
+            same origin.
+          </div>
+        )}
+        {embedUrl ? (
+          iframe
+        ) : (
+          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-gray-600 shadow-sm">
+            Dashboard URL is not configured. Set <code>VITE_KIBANA_EMBED_URL</code> to your Kibana embed link.
+          </div>
+        )}
+      </div>
+    </section>
+  );
 };
 
-const adminData = {
-  totalAccounts: 5000,
-  activeAccounts: 238,
-  totalDestinations: 979,
-  upcomingDestinations: 48,
-  destinationList: [
-    {
-      id: 1,
-      name: "France: Hands-On Cooking Class with Pâtisserie Chef Noémie",
-      type: "Food",
-      createdBy: "S123456",
-      adminName: "Alexander Thalorian Crestfield",
-    },
-    {
-      id: 1,
-      name: "France: Hands-On Cooking Class with Pâtisserie Chef Noémie",
-      type: "Food",
-      createdBy: "S123456",
-      adminName: "Alexander Thalorian Crestfield",
-    },
-    {
-      id: 1,
-      name: "France: Hands-On Cooking Class with Pâtisserie Chef Noémie",
-      type: "Food",
-      createdBy: "S123456",
-      adminName: "Alexander Thalorian Crestfield",
-    },
-    {
-      id: 1,
-      name: "France: Hands-On Cooking Class with Pâtisserie Chef Noémie",
-      type: "Food",
-      createdBy: "S123456",
-      adminName: "Alexander Thalorian Crestfield",
-    },
-    {
-      id: 1,
-      name: "France: Hands-On Cooking Class with Pâtisserie Chef Noémie",
-      type: "Food",
-      createdBy: "S123456",
-      adminName: "Alexander Thalorian Crestfield",
-    },
-  ],
-} as const;
-
-function DashboardCard({ title, value, subtitle }: DashboardCardProps) {
-  return (
-    <div className="bg-white shadow rounded p-4 flex flex-col">
-      <span className="text-gray-500 text-sm">{title}</span>
-      <span className="text-2xl font-bold">{value}</span>
-      {subtitle && <span className="text-green-500 text-sm">{subtitle}</span>}
-    </div>
-  );
-}
-
-function App() {
-  return (
-    <div className="flex h-screen font-sans">
-      {/* Sidebar */}
-      <div className="bg-teal-800 text-white w-64 p-6 flex flex-col justify-between">
-        <div>
-          <h1 className="text-2xl font-bold mb-8">FitCity</h1>
-          <nav className="flex flex-col gap-4">
-            <button  type='button' className="bg-teal-100 text-teal-900 font-semibold px-4 py-2 rounded text-left">
-              Dashboard
-            </button>
-            <button type='button' className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
-              Destination Management
-            </button>
-            <button type='button' className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
-              Destination Request
-            </button>
-            <button type='button' className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
-              Reporting
-            </button>
-            <button type='button' className="hover:bg-teal-700 px-4 py-2 rounded text-left flex items-center gap-2">
-              Account Management
-            </button>
-          </nav>
-        </div>
-        <div className="bg-teal-900 rounded p-4 flex items-center gap-2">
-          <div className="bg-white text-teal-900 rounded-full w-10 h-10 flex items-center justify-center">
-            S
-          </div>
-          <div>
-            <p>Seren Vale</p>
-            <p className="text-sm text-gray-300">@Seren.Vale@gmail.com</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 bg-gray-100 p-8 overflow-auto">
-        <h2 className="text-xl font-semibold mb-6">Dashboard</h2>
-
-        {/* Top Cards */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <DashboardCard title="Total Account" value={adminData.totalAccounts} subtitle="+20%" />
-          <DashboardCard title="Active Account" value={adminData.activeAccounts} />
-          <DashboardCard title="Total Destination" value={adminData.totalDestinations} />
-          <DashboardCard title="Upcoming Destination" value={adminData.upcomingDestinations} />
-        </div>
-
-        {/* Graph Placeholder */}
-        <div className="bg-white shadow rounded p-4 mb-6 h-48 flex items-center justify-center">
-          Graph
-        </div>
-
-        {/* Destination Table */}
-        <div className="bg-white shadow rounded p-4">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b">
-                <th className="p-2">Destination ID</th>
-                <th className="p-2">Destination Name</th>
-                <th className="p-2">Type</th>
-                <th className="p-2">Created By</th>
-                <th className="p-2">Admin Name</th>
-              </tr>
-            </thead>
-            <tbody>
-              {adminData.destinationList.map((dest, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50">
-                  <td className="p-2">{dest.id}</td>
-                  <td className="p-2">{dest.name}</td>
-                  <td className="p-2">{dest.type}</td>
-                  <td className="p-2">{dest.createdBy}</td>
-                  <td className="p-2">{dest.adminName}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default App;
+export default AdminDashboard;

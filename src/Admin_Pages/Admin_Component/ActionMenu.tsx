@@ -30,8 +30,14 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ options, isOpen, onToggle, onCl
     }, [onClose]);
 
     const handleAction = (action: () => void) => {
-        action();
+        // ปิด menu ก่อน แล้วค่อยเรียก action เพื่อให้ state อัพเดทก่อน
         onClose();
+        // เรียก action ทันที
+        try {
+            action();
+        } catch (error) {
+            console.error('[ActionMenu] Error executing action:', error);
+        }
     };
 
     return (
@@ -40,7 +46,10 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ options, isOpen, onToggle, onCl
                 <button
                     type="button"
                     className="inline-flex justify-center items-center rounded-full bg-white p-1 text-sm font-medium text-gray-700 hover:bg-gray-100 focus:outline-none transition-colors"
-                    onClick={(e) => { e.stopPropagation(); onToggle(); }}
+                    onClick={(e) => { 
+                        e.stopPropagation(); 
+                        onToggle(); 
+                    }}
                     aria-expanded={isOpen}
                     aria-haspopup="true"
                 >
@@ -50,19 +59,28 @@ const ActionMenu: React.FC<ActionMenuProps> = ({ options, isOpen, onToggle, onCl
 
             {isOpen && (
                 <div
-                    className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-gray-200 focus:outline-none z-40"
+                    className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-gray-200 focus:outline-none z-50"
                     role="menu"
                     aria-orientation="vertical"
                     aria-labelledby="menu-button"
                     tabIndex={-1}
+                    onClick={(e) => e.stopPropagation()}
                 >
                     <div className="py-1" role="none">
+                        {options.length === 0 && (
+                            <div className="px-4 py-2 text-sm text-gray-500">No options available</div>
+                        )}
                         {options.map((option) => (
                             <button
                                 type="button"
                                 key={option.value}
-                                onClick={(e) => { e.stopPropagation(); onClose(); setTimeout(() => handleAction(option.action), 0); }}
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center"
+                                onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    e.preventDefault();
+                                    handleAction(option.action); 
+                                }}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors flex items-center cursor-pointer"
                                 role="menuitem"
                                 tabIndex={-1}
                             >
