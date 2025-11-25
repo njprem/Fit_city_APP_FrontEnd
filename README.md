@@ -1,73 +1,187 @@
-# React + TypeScript + Vite
+# ✨ FitCity Frontend  
+A fully typed, production‑ready Vite + React application powering both traveler discovery and admin operations.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## 📚 Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture & Tech Stack](#architecture--tech-stack)
+- [Requirements](#requirements)
+- [Quick Start](#quick-start)
+- [Environment Configuration](#environment-configuration)
+- [Available Scripts](#available-scripts)
+- [Project Structure](#project-structure)
+- [Routing Overview](#routing-overview)
+- [Key Modules & Data Flow](#key-modules--data-flow)
+- [Deployment](#deployment)
+- [Development Standards](#development-standards)
+- [Troubleshooting & Tips](#troubleshooting--tips)
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🌍 Overview
+FitCity is a fully typed Vite + React SPA built with React 19, React Router 7, and TypeScript.  
+It powers both:
+- Traveler-facing search & discovery  
+- Admin tools for destination management and review moderation  
 
-## React Compiler
+The UI uses utility‑first styles and Lucide icons. All data flows through the FitCity REST API with built‑in session handling.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## ⭐ Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### **Traveler Experience**
+- Landing page with search/auth entry points  
+- Login, sign up, forgot password, terms, Google One Tap  
+- Search with filters & sorting  
+- Destination detail with media, location, reviews  
+- Favorite destinations with cross‑tab syncing  
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### **Admin Experience**
+- `/admin` workspace with persistent sidebar  
+- Destination change review (approve/reject/edit/submit)  
+- Filter + sort controls  
+- Rich destination form with confirmation dialogs  
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### **Platform**
+- Centralized API client  
+- Auto token injection  
+- 401 auto-logout  
+- Switchable favorites storage (local → API)  
+- Production Dockerfile with Nginx reverse proxy  
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+---
+
+## 🏗 Architecture & Tech Stack
+- **Framework:** React 19, React Router 7, Vite 7  
+- **Language:** TypeScript 5.8  
+- **Styling:** Tailwind-style utilities, PostCSS  
+- **Icons:** Lucide React  
+- **State/Data:** Hooks + service layer  
+- **Build/Deploy:** Docker (Node 22 builder + Nginx runtime)
+
+---
+
+## 🧰 Requirements
+- Node.js **20+**  
+- npm **10+**  
+- FitCity API access  
+- Google OAuth Client ID (optional)
+
+---
+
+## 🚀 Quick Start
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Create `.env`:
 ```
+VITE_API_URL=http://localhost:8080
+VITE_GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+```
+
+Run dev server:
+```bash
+npm run dev
+```
+
+Open: http://localhost:5173
+
+---
+
+## 🔧 Environment Configuration
+| Variable | Description | Required | Default |
+| --- | --- | --- | --- |
+| `VITE_API_URL` | REST API base URL | Yes | `http://localhost:8080` |
+| `VITE_GOOGLE_CLIENT_ID` | Google sign‑in client ID | Optional | "" |
+| `NGINX_PROXY_PASS` | API upstream for Docker Nginx | Optional | `http://127.0.0.1:8181` |
+
+---
+
+## 🛠 Available Scripts
+| Script | Use |
+| --- | --- |
+| `npm run dev` | Dev server with HMR |
+| `npm run build` | Production build |
+| `npm run preview` | Preview build |
+| `npm run lint` | Run ESLint |
+| `npm run lint:fix` | Auto‑fix ESLint issues |
+
+---
+
+## 📂 Project Structure
+```
+src/
+├─ App.tsx
+├─ components/
+├─ Admin_Pages/
+│  ├─ Pages/
+│  └─ Admin_Component/
+├─ pages/
+├─ services/
+├─ types/
+├─ utils/
+└─ config.ts
+```
+
+---
+
+## 🛣 Routing Overview
+| Route | Description | Auth |
+| --- | --- | --- |
+| `/` | Landing | Public |
+| `/login` etc. | Auth flows | Public |
+| `/search` | Traveler search | Public |
+| `/destination/:id` | Destination detail | Public + gated actions |
+| `/profile`, `/favorite` | Personal utilities | Auth |
+| `/admin` | Admin workspace | Auth |
+
+---
+
+## 🔄 Key Modules & Data Flow
+- **config.ts** → Normalizes env vars  
+- **api.ts** → Token injection, error handling  
+- **auth services** → Session & Google loader  
+- **favoritesService.ts** → Event‑driven favorites management  
+- **admin components** → Menus, dialogs, mapping helpers  
+- **RequireAuth.tsx** → Route guard  
+
+---
+
+## 📦 Deployment
+
+### **Static Build**
+```
+npm run build
+```
+Serve `dist/` behind any reverse proxy that routes `/api/*` to the backend.
+
+### **Docker**
+```bash
+docker build   --build-arg VITE_API_URL=https://api.example.com   --build-arg VITE_GOOGLE_CLIENT_ID=XXX   --build-arg NGINX_PROXY_PASS=http://api:8080   -t fit-city-web .
+
+docker run -d -p 8080:80 fit-city-web
+```
+
+---
+
+## 📏 Development Standards
+- Full TypeScript coverage  
+- Components consume service helpers (no raw fetch)  
+- Lint before PR  
+- Utility-first styling  
+- Keep mock/adapters isolated  
+
+---
+
+## 🛠 Troubleshooting & Tips
+- Wrong env vars → check console warnings  
+- 401 → auto logout; verify CORS  
+- Favorites fallback → localStorage  
+- Search logs are verbose (for backend debugging)  
+- Enable Google sign‑in → make sure authorized domains match  
+
+---
+
+_Always update this README when expanding routes, environment flags, or build paths._

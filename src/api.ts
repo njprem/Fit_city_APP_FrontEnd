@@ -7,7 +7,7 @@ import {
   type AuthSession,
   type AuthUser,
 } from "./services/auth/authService";
-import type { DestinationByIdPayload, DestinationReviewsPayload } from "./types/destination";
+import type { DestinationByIdPayload, DestinationReviewsPayload, DestinationsResponse } from "./types/destination";
 
 const handleUnauthorized = () => {
   logout();
@@ -187,6 +187,85 @@ export async function getDestinationReviewById(id: string): Promise<DestinationR
   return (await res.json()) as DestinationReviewsPayload;
 }
 
+export interface DestinationStatsViewsResponse {
+  destination_id: string;
+  name?: string;
+  city?: string;
+  country?: string;
+  views?: {
+    last_updated_at?: string;
+    total_views?: number;
+    unique_ips?: number;
+    unique_users?: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+export interface DestinationStatsViewsQuery {
+  destination_id: string;
+  range?: "1h" | "6h" | "12h" | "24h" | "7d" | "30d" | "all";
+}
+
+export async function fetchDestinationStatsViews({
+  destination_id,
+  range,
+}: DestinationStatsViewsQuery): Promise<DestinationStatsViewsResponse> {
+  const searchParams = new URLSearchParams({ destination_id });
+  if (range && range !== "all") {
+    searchParams.set("range", range);
+  }
+
+  const response = await fetchWithAuth(
+    `${API_BASE_URL}/api/v1/admin/destination-stats/views?${searchParams.toString()}`,
+    {
+      method: "GET",
+    }
+  );
+
+  return (await response.json()) as DestinationStatsViewsResponse;
+}
+
+export async function exportDestinationStats(destinationIds?: string[]): Promise<string> {
+  const body =
+    Array.isArray(destinationIds) && destinationIds.length > 0
+      ? { destination_ids: destinationIds }
+      : {};
+
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-stats/export`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+
+  return await response.text();
+}
+
+export interface PublishedDestinationsQuery {
+  limit?: number;
+  offset?: number;
+  query?: string;
+  categories?: string;
+  min_rating?: number;
+  max_rating?: number;
+}
+
+export async function fetchPublishedDestinations(
+  query: PublishedDestinationsQuery = {}
+): Promise<DestinationsResponse> {
+  const params = new URLSearchParams();
+  if (typeof query.limit === "number") params.set("limit", String(query.limit));
+  if (typeof query.offset === "number") params.set("offset", String(query.offset));
+  if (query.query) params.set("query", query.query);
+  if (query.categories) params.set("categories", query.categories);
+  if (typeof query.min_rating === "number") params.set("min_rating", String(query.min_rating));
+  if (typeof query.max_rating === "number") params.set("max_rating", String(query.max_rating));
+
+  const queryString = params.toString();
+  const url = `${API_BASE_URL}/api/v1/destinations${queryString ? `?${queryString}` : ""}`;
+  const response = await fetchWithAuth(url, { method: "GET" });
+  return (await response.json()) as DestinationsResponse;
+}
+
 export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   const res = await fetchWithAuth(`${API_BASE_URL}/api/v1/auth/password`, {
     method: "POST",
@@ -335,6 +414,7 @@ export interface DestinationChangeFields {
     ordering?: number;
     url?: string;
   }>;
+  hero_image_temp_key?: string;
   hero_image_upload_id?: string;
   hero_image_url?: string;
   published_hero_image?: string;
@@ -348,7 +428,11 @@ export interface DestinationChange {
   destination_id?: string;
   status?: string;
   submitted_by?: string;
+  submitted_by_full_name?: string;
+  submitted_by_username?: string;
   reviewed_by?: string;
+  reviewed_by_full_name?: string;
+  reviewed_by_username?: string;
   submitted_at?: string;
   reviewed_at?: string;
   draft_version?: number;
@@ -411,6 +495,38 @@ export async function fetchDestinationChangeById(changeId: string): Promise<Dest
     method: "GET",
   });
 
+  return (await response.json()) as DestinationChangeDetailResponse;
+}
+
+export interface CreateDestinationChangePayload {
+  action: "create" | "update" | "delete";
+  destination_id?: string;
+  fields: DestinationChangeFields;
+}
+
+export interface UpdateDestinationChangePayload {
+  draft_version?: number;
+  fields: DestinationChangeFields;
+}
+
+export async function createDestinationChange(
+  payload: CreateDestinationChangePayload
+): Promise<DestinationChangeDetailResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return (await response.json()) as DestinationChangeDetailResponse;
+}
+
+export async function updateDestinationChange(
+  changeId: string,
+  payload: UpdateDestinationChangePayload
+): Promise<DestinationChangeDetailResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
   return (await response.json()) as DestinationChangeDetailResponse;
 }
 
@@ -478,3 +594,183 @@ export const api = {
   delete: (url: string) =>
     fetchWithAuth(`${API_BASE_URL}${url}`, { method: "DELETE" }).then((res) => res.json()),
 };
+
+export interface MediaUploadResponse {
+  change_request: DestinationChange;
+  gallery_uploads?: Array<{
+    ordering?: number;
+    upload_id?: string;
+    url?: string;
+  }>;
+}
+
+export async function uploadDestinationGallery(changeId: string, files: File[]): Promise<MediaUploadResponse> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}/gallery`, {
+    method: "POST",
+    body: formData,
+  });
+  return (await response.json()) as MediaUploadResponse;
+}
+
+export async function uploadDestinationHeroImage(changeId: string, file: File): Promise<MediaUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-changes/${changeId}/hero-image`, {
+    method: "POST",
+    body: formData,
+  });
+  return (await response.json()) as MediaUploadResponse;
+}
+
+export interface DestinationImportTemplate {
+  headers: string[];
+  sample_row?: string[];
+}
+
+export interface DestinationImportTemplateResponse {
+  template: DestinationImportTemplate;
+}
+
+export type DestinationImportStatus = "queued" | "processing" | "completed" | "failed";
+
+export interface DestinationImportJob {
+  id: string;
+  status?: DestinationImportStatus;
+  dry_run?: boolean;
+  file_key?: string;
+  error_csv_key?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+  submitted_at?: string;
+  completed_at?: string;
+  uploaded_by?: string;
+  total_rows?: number;
+  processed_rows?: number;
+  rows_failed?: number;
+  changes_created?: number;
+  pending_change_ids?: string[];
+}
+
+export interface DestinationImportRow {
+  id?: string;
+  job_id?: string;
+  row_number?: number;
+  action?: string;
+  destination_id?: string;
+  change_id?: string;
+  status?: "pending_review" | "skipped" | "failed";
+  error?: string;
+  payload?: DestinationChangeFields;
+}
+
+export interface DestinationImportResponse {
+  job: DestinationImportJob;
+  rows?: DestinationImportRow[];
+}
+
+export interface UploadDestinationImportParams {
+  dry_run?: boolean;
+  submit?: boolean;
+  notes?: string;
+}
+
+export async function fetchDestinationImportTemplate(): Promise<DestinationImportTemplateResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-imports/template`, {
+    method: "GET",
+  });
+
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  const raw = await response.text();
+
+  const parseCsvRow = (row: string): string[] => {
+    const result: string[] = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < row.length; i++) {
+      const char = row[i];
+      if (char === '"' && inQuotes && row[i + 1] === '"') {
+        current += '"';
+        i++;
+        continue;
+      }
+      if (char === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+      if (char === "," && !inQuotes) {
+        result.push(current);
+        current = "";
+        continue;
+      }
+      current += char;
+    }
+    result.push(current);
+    return result;
+  };
+
+  // Prefer JSON if provided
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(raw) as DestinationImportTemplateResponse;
+    } catch {
+      throw new Error("Unable to parse template response.");
+    }
+  }
+
+  // Accept CSV/plain responses and adapt to the JSON shape
+  const looksLikeCsv = contentType.includes("text/csv") || contentType.includes("text/plain") || raw.trim().startsWith("slug,");
+  if (looksLikeCsv) {
+    const lines = raw.trim().split(/\r?\n/).filter(Boolean);
+    if (lines.length === 0) {
+      throw new Error("Template endpoint returned an empty CSV.");
+    }
+    const headers = parseCsvRow(lines[0]);
+    const sampleRow = lines[1] ? parseCsvRow(lines[1]) : [];
+    return { template: { headers, sample_row: sampleRow } };
+  }
+
+  throw new Error(raw || "Template endpoint did not return JSON or CSV.");
+}
+
+export async function uploadDestinationImport(
+  file: File,
+  params: UploadDestinationImportParams = {}
+): Promise<DestinationImportResponse> {
+  const query = new URLSearchParams();
+  if (params.dry_run) query.set("dry_run", "true");
+  if (params.submit === false) query.set("submit", "false");
+
+  const queryString = query.toString();
+  const url = `${API_BASE_URL}/api/v1/admin/destination-imports${queryString ? `?${queryString}` : ""}`;
+
+  const formData = new FormData();
+  formData.append("file", file);
+  if (params.notes) {
+    formData.append("notes", params.notes);
+  }
+
+  const response = await fetchWithAuth(url, {
+    method: "POST",
+    body: formData,
+  });
+
+  return (await response.json()) as DestinationImportResponse;
+}
+
+export async function fetchDestinationImportJob(jobId: string): Promise<DestinationImportResponse> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-imports/${jobId}`, {
+    method: "GET",
+  });
+  return (await response.json()) as DestinationImportResponse;
+}
+
+export async function downloadDestinationImportErrors(jobId: string): Promise<Blob> {
+  const response = await fetchWithAuth(`${API_BASE_URL}/api/v1/admin/destination-imports/${jobId}/errors`, {
+    method: "GET",
+    headers: { Accept: "text/csv", "Content-Type": "" },
+  });
+  return await response.blob();
+}

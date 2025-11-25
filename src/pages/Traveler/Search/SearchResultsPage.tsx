@@ -31,6 +31,9 @@ export default function SearchResultsPage() {
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [total, setTotal] = useState(0);
 
   const [selectedCategories, setSelectedCategories] = useState<
     CategoryFilter[]
@@ -38,11 +41,21 @@ export default function SearchResultsPage() {
   const [sortBy, setSortBy] = useState<SortOption>("rating_desc");
   const [showFilters, setShowFilters] = useState(false);
 
+  const pageSizeOptions = [25, 50, 100, 200];
+
+  const getPageNumbers = (current: number, totalPages: number): number[] => {
+    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
+    if (current <= 3) return [1, 2, 3, 4, 5];
+    if (current >= totalPages - 2) return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    return [current - 2, current - 1, current, current + 1, current + 2];
+  };
+
   useEffect(() => {
     async function fetchResults() {
       try {
         setLoading(true);
         setError(null);
+        setDestinations([]);
 
         const filters: SearchFilters = {
           sort: sortBy,
@@ -52,13 +65,24 @@ export default function SearchResultsPage() {
           filters.categories = selectedCategories;
         }
 
-        const response = await searchDestinations(query, 50, filters);
+        const response = await searchDestinations(
+          query,
+          pageSize,
+          filters,
+          (page - 1) * pageSize
+        );
         // Prefer first gallery image as hero for each destination
         const adapted = (response.destinations || []).map((d) => ({
           ...d,
           hero_image_url: (d.gallery && d.gallery[0]?.url) || d.hero_image_url,
         }));
         setDestinations(adapted);
+        const meta = response.meta ?? {} as Record<string, unknown>;
+        const totalCount =
+          (meta as { total?: number; count?: number }).total ??
+          (meta as { total?: number; count?: number }).count ??
+          (response.destinations?.length ?? 0);
+        setTotal(totalCount);
       } catch (err) {
         console.error("Search error:", err);
         setError("Failed to load search results");
@@ -68,7 +92,11 @@ export default function SearchResultsPage() {
     }
 
     fetchResults();
-  }, [query, selectedCategories, sortBy]);
+  }, [query, selectedCategories, sortBy, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, selectedCategories, sortBy, pageSize]);
 
   const toggleCategory = (category: CategoryFilter) => {
     setSelectedCategories((prev) =>
@@ -83,6 +111,8 @@ export default function SearchResultsPage() {
     navigate(`/destination/${id}`);
   };
 
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
   return (
     <>
       <Navbar />
@@ -95,8 +125,7 @@ export default function SearchResultsPage() {
             </h1>
             {!loading && (
               <p className="text-slate-600">
-                Found {destinations.length}{" "}
-                {destinations.length === 1 ? "destination" : "destinations"}
+                Found {total} {total === 1 ? "destination" : "destinations"}
               </p>
             )}
           </div>
@@ -217,7 +246,7 @@ export default function SearchResultsPage() {
                       <img
                         src={destination.hero_image_url}
                         alt={destination.name}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                        className="block w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       />
                     </div>
                   )}
@@ -299,6 +328,72 @@ export default function SearchResultsPage() {
                   </div>
                 </button>
               ))}
+            </div>
+          )}
+          {!loading && !error && destinations.length > 0 && (
+            <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-3 bg-white px-4 py-3 rounded-lg shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-slate-700">
+                <span>Rows per page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="border border-slate-300 rounded-md px-2 py-1 text-sm bg-white"
+                >
+                  {pageSizeOptions.map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-700">
+                <button
+                  type="button"
+                  className={`px-2 py-1 rounded ${page === 1 ? "text-slate-400 cursor-not-allowed" : "hover:bg-slate-100"}`}
+                  disabled={page === 1}
+                  onClick={() => setPage(1)}
+                >
+                  First
+                </button>
+                <button
+                  type="button"
+                  className={`px-2 py-1 rounded ${page === 1 ? "text-slate-400 cursor-not-allowed" : "hover:bg-slate-100"}`}
+                  disabled={page === 1}
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                >
+                  Prev
+                </button>
+                {getPageNumbers(page, totalPages).map((p) => (
+                  <button
+                    type="button"
+                    key={p}
+                    className={`px-3 py-1 rounded ${p === page ? "bg-teal-600 text-white cursor-default" : "hover:bg-slate-100"}`}
+                    disabled={p === page}
+                    onClick={() => setPage(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className={`px-2 py-1 rounded ${page === totalPages ? "text-slate-400 cursor-not-allowed" : "hover:bg-slate-100"}`}
+                  disabled={page === totalPages}
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                >
+                  Next
+                </button>
+                <button
+                  type="button"
+                  className={`px-2 py-1 rounded ${page === totalPages ? "text-slate-400 cursor-not-allowed" : "hover:bg-slate-100"}`}
+                  disabled={page === totalPages}
+                  onClick={() => setPage(totalPages)}
+                >
+                  Last
+                </button>
+              </div>
+              <div className="text-sm text-slate-600">
+                Page {page} of {totalPages} · {total} items
+              </div>
             </div>
           )}
         </div>

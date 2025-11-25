@@ -16,5 +16,6 @@ export default defineConfig({
     port: 4173,              // vite preview port
     open: true,              // auto open preview page
   },
-  base: './',                // ensures correct asset paths when deploying to subfolder
+  // Use absolute base so deep-linked routes load assets correctly (e.g., /destination/:id)
+  base: '/',                
 })

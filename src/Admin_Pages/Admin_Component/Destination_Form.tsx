@@ -8,45 +8,41 @@ import ImageUploader from './ImageUploader';
 import type { DestinationFormData } from './destinationFormData';
 
 interface DestinationFormProps {
-    initialData: DestinationFormData;
+    data: DestinationFormData; // fully controlled by parent
     viewMode: 'add' | 'edit' | 'view'; 
+    onChange: (data: DestinationFormData) => void;
     onSave: (data: DestinationFormData, imageFiles: File[]) => void;
     onCancel: () => void;
-    onDelete?: (id: number) => void; 
+    onDelete?: (id: number | string) => void; 
+    isLoading?: boolean; // disable inputs while detail is being fetched
+    externalErrors?: Record<string, string>;
+    hideExitButton?: boolean;
 }
 
-const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode, onSave, onCancel, onDelete }) => {
-    const [formData, setFormData] = useState<DestinationFormData>(initialData);
-    const [imageFiles, setImageFiles] = useState<File[]>(initialData.imageFiles || []);
+const DestinationForm: React.FC<DestinationFormProps> = ({ data, viewMode, onChange, onSave, onCancel, onDelete, isLoading = false, externalErrors = {}, hideExitButton = false }) => {
+    const [imageFiles, setImageFiles] = useState<File[]>(data.imageFiles || []);
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const numericFormId = typeof formData.id === 'number' ? formData.id : null;
+    const hasFormId = data.id !== null && data.id !== undefined && data.id !== '';
 
-    // Update formData and imageFiles when initialData or viewMode changes
     useEffect(() => {
-        setFormData(initialData);
-        setImageFiles(initialData.imageFiles || []);
-        setErrors({}); // Clear errors on mode/data change
-    }, [initialData, viewMode]);
+        setImageFiles(data.imageFiles || []);
+        setErrors({});
+    }, [data, viewMode]);
 
     const isViewMode = viewMode === 'view';
     const isEditMode = viewMode === 'edit';
     const isAddMode = viewMode === 'add';
+    const isLocked = isViewMode || isLoading;
 
-    const applyFieldChange = (name: keyof DestinationFormData, rawValue: string | number | null) => {
-        const finalValue =
-            rawValue === null && (name === 'latitude' || name === 'longitude')
-                ? null
-                : rawValue;
+    const mergedErrors = { ...errors, ...externalErrors };
 
-        setFormData(prev => ({
-            ...prev,
-            [name]: finalValue as DestinationFormData[keyof DestinationFormData],
-        }));
-
+    const updateField = (name: keyof DestinationFormData, value: DestinationFormData[keyof DestinationFormData]) => {
+        const next = { ...data, [name]: value };
+        onChange(next);
         setErrors(prev => {
-            const newErrors = { ...prev };
-            delete newErrors[name as string];
-            return newErrors;
+            const copy = { ...prev };
+            delete copy[name as string];
+            return copy;
         });
     };
 
@@ -82,30 +78,30 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
             processedValue = value;
         }
 
-        applyFieldChange(name as keyof DestinationFormData, processedValue);
+        updateField(name as keyof DestinationFormData, processedValue as DestinationFormData[keyof DestinationFormData]);
     };
 
     const handleImagesChange = (files: File[]) => {
         setImageFiles(files);
+        updateField('imageFiles', files as unknown as DestinationFormData[keyof DestinationFormData]);
     };
 
     const validate = (): boolean => {
         const newErrors: Record<string, string> = {};
-        if (!formData.name) newErrors.name = 'Destination Name is required.';
-        if (!formData.type) newErrors.type = 'Type is required.'; 
+        if (!data.name) newErrors.name = 'Destination Name is required.';
+        if (!data.type) newErrors.type = 'Type is required.'; 
         
-        // Basic contact validation: not empty and contains at least one digit
-        const sanitizedContact = formData.contact.replace(/[^\d+]/g, ''); // Remove all non-digits except '+'
-        if (!formData.contact || sanitizedContact.length < 5) newErrors.contact = 'Valid Contact number is required (min 5 characters).';
+        const sanitizedContact = data.contact.replace(/[^\d+]/g, ''); // Remove all non-digits except '+'
+        if (!data.contact || sanitizedContact.length < 5) newErrors.contact = 'Valid Contact number is required (min 5 characters).';
         
-        if (!formData.country) newErrors.country = 'Country is required.';
-        if (!formData.city) newErrors.city = 'City is required.';
-        if (formData.latitude === null || isNaN(formData.latitude)) newErrors.latitude = 'Valid Latitude is required.';
-        if (formData.longitude === null || isNaN(formData.longitude)) newErrors.longitude = 'Valid Longitude is required.';
-        if (!formData.openingTime) newErrors.openingTime = 'Opening Time is required.';
-        if (!formData.closingTime) newErrors.closingTime = 'Closing Time is required.';
-        if (!formData.description) newErrors.description = 'Description is required.';
-        if (isAddMode && imageFiles.length === 0 && formData.images.length === 0) newErrors.images = 'At least one image is required.';
+        if (!data.country) newErrors.country = 'Country is required.';
+        if (!data.city) newErrors.city = 'City is required.';
+        if (data.latitude === null || isNaN(data.latitude)) newErrors.latitude = 'Valid Latitude is required.';
+        if (data.longitude === null || isNaN(data.longitude)) newErrors.longitude = 'Valid Longitude is required.';
+        if (!data.openingTime) newErrors.openingTime = 'Opening Time is required.';
+        if (!data.closingTime) newErrors.closingTime = 'Closing Time is required.';
+        if (!data.description) newErrors.description = 'Description is required.';
+        if (isAddMode && imageFiles.length === 0 && data.images.length === 0) newErrors.images = 'At least one image is required.';
         
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -116,7 +112,7 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
         if (isViewMode) return; 
 
         if (validate()) {
-            onSave(formData, imageFiles);
+            onSave(data, imageFiles);
         } else {
             console.error('Please fill out all required fields correctly.'); 
         }
@@ -124,35 +120,37 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
 
     const handleTimeChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        updateField(name as keyof DestinationFormData, value as DestinationFormData[keyof DestinationFormData]);
     };
 
     const pageTitle = isAddMode ? 'Add New Destination' : 
-                      isEditMode ? `Edit Destination: ID ${initialData.id}` : 
-                      `View Destination: ID ${initialData.id}`;
+                      isEditMode ? `Edit Destination: ID ${data.id}` : 
+                      `View Destination: ID ${data.id}`;
 
     return (
         <div className="bg-white rounded-xl shadow-2xl p-8 max-w-6xl mx-auto my-8">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-3xl font-bold text-gray-900">{pageTitle}</h1>
                 <div className='flex space-x-3'>
-                    {isEditMode && onDelete && numericFormId !== null && (
+                    {isEditMode && onDelete && hasFormId && (
                         <button
                             type="button"
-                            onClick={() => onDelete(numericFormId)} 
+                            onClick={() => onDelete(data.id as number | string)} 
                             className="p-2 rounded-full text-red-600 hover:bg-red-100 transition-colors"
                             aria-label="Delete Destination"
                         >
                             <Trash2 className="w-6 h-6" />
                         </button>
                     )}
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors shadow-sm font-medium"
-                    >
-                        Exit
-                    </button>
+                    {!hideExitButton && (
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors shadow-sm font-medium"
+                        >
+                            Exit
+                        </button>
+                    )}
                     {!isViewMode && ( 
                         <button
                             type="submit"
@@ -168,7 +166,7 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
             <hr className="mb-8" /> {/* Separator for cleaner look */}
 
             <form onSubmit={handleSubmit} className="mt-8">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 ${isLoading ? 'opacity-60 pointer-events-none' : ''}`}>
                     {/* Left Column (Main Fields) - Spans 2/3 */}
                     <div className="lg:col-span-2 space-y-6">
                         
@@ -179,13 +177,13 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                                 type="text"
                                 name="name"
                                 id="name"
-                                value={formData.name}
+                                value={data.name}
                                 onChange={handleChange}
-                                disabled={isViewMode}
-                                className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isViewMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${errors.name ? 'border-red-500' : ''}`}
+                                disabled={isLocked}
+                                className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${mergedErrors.name ? 'border-red-500' : ''}`}
                                 placeholder="e.g., Iceland: Northern Lights & Glacier Hike"
                             />
-                            {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name}</p>}
+                            {mergedErrors.name && <p className="mt-1 text-xs text-red-500">{mergedErrors.name}</p>}
                         </div>
 
                         {/* Type */}
@@ -193,14 +191,14 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                             <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">Type <span className="text-red-500">*</span></label>
                             <Dropdown
                                 name="type"
-                                value={formData.type}
+                                value={data.type}
                                 options={formTypeOptions}
-                                onChange={(value) => applyFieldChange('type', value)}
+                                onChange={(value) => updateField('type', value as DestinationFormData[keyof DestinationFormData])}
                                 placeholder="Select Type"
-                                disabled={isViewMode}
-                                className={`w-full ${errors.type ? 'border-red-500 rounded-lg' : ''}`}
+                                disabled={isLocked}
+                                className={`w-full ${mergedErrors.type ? 'border-red-500 rounded-lg' : ''}`}
                             />
-                            {errors.type && <p className="mt-1 text-xs text-red-500">{errors.type}</p>}
+                            {mergedErrors.type && <p className="mt-1 text-xs text-red-500">{mergedErrors.type}</p>}
                         </div>
 
                         {/* Contact (Numeric Restriction) */}
@@ -210,15 +208,15 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                                 type="tel" // Use tel for mobile keyboard optimization
                                 name="contact"
                                 id="contact"
-                                value={formData.contact}
+                                value={data.contact}
                                 onChange={handleChange}
-                                disabled={isViewMode}
+                                disabled={isLocked}
                                 // Pattern is for basic client-side check, primary logic is in validation
                                 pattern="[0-9+-\s()]*" 
-                                className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isViewMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${errors.contact ? 'border-red-500' : ''}`}
+                                className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${mergedErrors.contact ? 'border-red-500' : ''}`}
                                 placeholder="e.g., +6612345678 or 0812345678"
                             />
-                            {errors.contact && <p className="mt-1 text-xs text-red-500">{errors.contact}</p>}
+                            {mergedErrors.contact && <p className="mt-1 text-xs text-red-500">{mergedErrors.contact}</p>}
                         </div>
                         
                         {/* Country & City */}
@@ -227,32 +225,32 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                                 <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">Country <span className="text-red-500">*</span></label>
                                 <Dropdown
                                     name="country"
-                                    value={formData.country}
+                                    value={data.country}
                                     options={countryOptions}
                                     onChange={(value) => {
-                                        applyFieldChange('country', value);
-                                        if (formData.city) {
-                                            applyFieldChange('city', '');
+                                        updateField('country', value as DestinationFormData[keyof DestinationFormData]);
+                                        if (data.city) {
+                                            updateField('city', '' as DestinationFormData[keyof DestinationFormData]);
                                         }
                                     }}
                                     placeholder="Select Country"
-                                    disabled={isViewMode}
-                                    className={`w-full ${errors.country ? 'border-red-500 rounded-lg' : ''}`}
+                                    disabled={isLocked}
+                                className={`w-full ${mergedErrors.country ? 'border-red-500 rounded-lg' : ''}`}
                                 />
-                                {errors.country && <p className="mt-1 text-xs text-red-500">{errors.country}</p>}
+                                {mergedErrors.country && <p className="mt-1 text-xs text-red-500">{mergedErrors.country}</p>}
                             </div>
                             <div>
                                 <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City <span className="text-red-500">*</span></label>
                                 <Dropdown
                                     name="city"
-                                    value={formData.city}
-                                    options={cityOptions[formData.country] || []}
-                                    onChange={(value) => applyFieldChange('city', value)}
+                                    value={data.city}
+                                    options={cityOptions[data.country] || []}
+                                    onChange={(value) => updateField('city', value as DestinationFormData[keyof DestinationFormData])}
                                     placeholder="Select City"
-                                    disabled={isViewMode || !formData.country}
-                                    className={`w-full ${errors.city ? 'border-red-500 rounded-lg' : ''}`}
+                                    disabled={isLocked || !data.country}
+                                className={`w-full ${mergedErrors.city ? 'border-red-500 rounded-lg' : ''}`}
                                 />
-                                {errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}
+                                {mergedErrors.city && <p className="mt-1 text-xs text-red-500">{mergedErrors.city}</p>}
                             </div>
                         </div>
 
@@ -264,14 +262,14 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                                     type="number"
                                     name="latitude"
                                     id="latitude"
-                                    value={formData.latitude ?? ''}
+                                    value={data.latitude ?? ''}
                                     onChange={handleChange}
                                     step="any"
-                                    disabled={isViewMode}
-                                    className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isViewMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${errors.latitude ? 'border-red-500' : ''}`}
+                                    disabled={isLocked}
+                                    className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${mergedErrors.latitude ? 'border-red-500' : ''}`}
                                     placeholder="e.g., 13.7563"
                                 />
-                                {errors.latitude && <p className="mt-1 text-xs text-red-500">{errors.latitude}</p>}
+                                {mergedErrors.latitude && <p className="mt-1 text-xs text-red-500">{mergedErrors.latitude}</p>}
                             </div>
                             <div>
                                 <label htmlFor="longitude" className="block text-sm font-medium text-gray-700 mb-1">Longitude <span className="text-red-500">*</span></label>
@@ -279,14 +277,14 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                                     type="number"
                                     name="longitude"
                                     id="longitude"
-                                    value={formData.longitude ?? ''}
+                                    value={data.longitude ?? ''}
                                     onChange={handleChange}
                                     step="any"
-                                    disabled={isViewMode}
-                                    className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isViewMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${errors.longitude ? 'border-red-500' : ''}`}
+                                    disabled={isLocked}
+                                    className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${mergedErrors.longitude ? 'border-red-500' : ''}`}
                                     placeholder="e.g., 100.5018"
                                 />
-                                {errors.longitude && <p className="mt-1 text-xs text-red-500">{errors.longitude}</p>}
+                                {mergedErrors.longitude && <p className="mt-1 text-xs text-red-500">{mergedErrors.longitude}</p>}
                             </div>
                         </div>
 
@@ -298,12 +296,12 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                                     type="time"
                                     name="openingTime"
                                     id="openingTime"
-                                    value={formData.openingTime}
+                                    value={data.openingTime}
                                     onChange={handleTimeChange}
-                                    disabled={isViewMode}
-                                    className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isViewMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${errors.openingTime ? 'border-red-500' : ''}`}
+                                    disabled={isLocked}
+                                className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${mergedErrors.openingTime ? 'border-red-500' : ''}`}
                                 />
-                                {errors.openingTime && <p className="mt-1 text-xs text-red-500">{errors.openingTime}</p>}
+                                {mergedErrors.openingTime && <p className="mt-1 text-xs text-red-500">{mergedErrors.openingTime}</p>}
                             </div>
                             <div>
                                 <label htmlFor="closingTime" className="block text-sm font-medium text-gray-700 mb-1">Closing Time <span className="text-red-500">*</span></label>
@@ -311,12 +309,12 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                                     type="time"
                                     name="closingTime"
                                     id="closingTime"
-                                    value={formData.closingTime}
+                                    value={data.closingTime}
                                     onChange={handleTimeChange}
-                                    disabled={isViewMode}
-                                    className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isViewMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${errors.closingTime ? 'border-red-500' : ''}`}
+                                    disabled={isLocked}
+                                className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 ${isLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${mergedErrors.closingTime ? 'border-red-500' : ''}`}
                                 />
-                                {errors.closingTime && <p className="mt-1 text-xs text-red-500">{errors.closingTime}</p>}
+                                {mergedErrors.closingTime && <p className="mt-1 text-xs text-red-500">{mergedErrors.closingTime}</p>}
                             </div>
                         </div>
 
@@ -327,26 +325,26 @@ const DestinationForm: React.FC<DestinationFormProps> = ({ initialData, viewMode
                                 name="description"
                                 id="description"
                                 rows={6} // Increased rows for better description area
-                                value={formData.description}
+                                value={data.description}
                                 onChange={handleChange}
-                                disabled={isViewMode}
-                                className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 resize-none ${isViewMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${errors.description ? 'border-red-500' : ''}`}
+                                disabled={isLocked}
+                                className={`w-full px-4 py-2 rounded-lg focus:ring-teal-500 focus:border-teal-500 resize-none ${isLocked ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'border border-gray-300'} ${mergedErrors.description ? 'border-red-500' : ''}`}
                                 placeholder="Detailed description of the destination and activities..."
                             />
-                            {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>}
+                            {mergedErrors.description && <p className="mt-1 text-xs text-red-500">{mergedErrors.description}</p>}
                         </div>
 
                     </div>
 
                     {/* Right Column (Image Uploader) - Spans 1/3 */}
                     <ImageUploader 
-                        initialImages={formData.images} 
+                        initialImages={data.images} 
                         onImagesChange={handleImagesChange} 
-                        disabled={isViewMode} 
+                        disabled={isLocked} 
                         viewMode={viewMode} // <<-- [แก้ไขที่ 3] ส่ง viewMode จาก Form ไปยัง Uploader
                     />
                 </div>
-                {errors.images && <p className="mt-4 text-xs text-red-500 text-center">{errors.images}</p>}
+                {mergedErrors.images && <p className="mt-4 text-xs text-red-500 text-center">{mergedErrors.images}</p>}
 
                 {/* NOTE: Action buttons are moved to the top right section now */}
             </form>
