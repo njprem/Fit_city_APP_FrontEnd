@@ -133,6 +133,9 @@ const ReportingPage: React.FC = () => {
     const [sortBy, setSortBy] = useState<typeof sortOptions[number]['value']>('name_asc');
     const [filterType, setFilterType] = useState<string>('');
     const [destinations, setDestinations] = useState<ReportingDestination[]>([]);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
+    const [total, setTotal] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -148,6 +151,7 @@ const ReportingPage: React.FC = () => {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const sortRef = useRef<HTMLDivElement>(null);
     const filterRef = useRef<HTMLDivElement>(null);
+    const pageSizeOptions = [25, 50, 100, 200];
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -169,15 +173,24 @@ const ReportingPage: React.FC = () => {
             setIsLoading(true);
             setError(null);
             try {
-                const response = await fetchPublishedDestinations({ limit: 100, offset: 0 });
+                const response = await fetchPublishedDestinations({
+                    limit: pageSize,
+                    offset: (page - 1) * pageSize,
+                    query: searchTerm.trim() || undefined,
+                    categories: filterType || undefined,
+                });
                 if (!isCancelled) {
                     const mapped = response.destinations.map(adaptPublishedRecordToDestination);
                     setDestinations(mapped);
+                    const meta = response.meta ?? {} as Record<string, unknown>;
+                    const totalCount = (meta as { total?: number; count?: number }).total ?? (meta as { total?: number; count?: number }).count ?? response.destinations.length ?? 0;
+                    setTotal(totalCount);
                 }
             } catch (err) {
                 if (!isCancelled) {
                     setError(err instanceof Error ? err.message : 'Unable to load destinations');
                     setDestinations([]);
+                    setTotal(0);
                 }
             } finally {
                 if (!isCancelled) {
@@ -190,7 +203,7 @@ const ReportingPage: React.FC = () => {
         return () => {
             isCancelled = true;
         };
-    }, []);
+    }, [page, pageSize, searchTerm, filterType]);
 
     useEffect(() => {
         if (!selectedDestination) {
@@ -229,19 +242,6 @@ const ReportingPage: React.FC = () => {
 
     const processedDestinations = useMemo(() => {
         let result = [...destinations];
-        if (searchTerm.trim()) {
-            const lookup = searchTerm.toLowerCase();
-            result = result.filter(
-                (dest) =>
-                    dest.name.toLowerCase().includes(lookup) ||
-                    dest.id.toLowerCase().includes(lookup) ||
-                    (dest.city ?? '').toLowerCase().includes(lookup)
-            );
-        }
-        if (filterType) {
-            result = result.filter((dest) => dest.type === filterType);
-        }
-
         result.sort((a, b) => {
             switch (sortBy) {
                 case 'name_asc':
@@ -291,6 +291,18 @@ const ReportingPage: React.FC = () => {
         setStatsError(null);
     };
 
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const getPageNumbers = (current: number, totalPagesValue: number): number[] => {
+        if (totalPagesValue <= 5) return Array.from({ length: totalPagesValue }, (_, i) => i + 1);
+        if (current <= 3) return [1, 2, 3, 4, 5];
+        if (current >= totalPagesValue - 2) return [totalPagesValue - 4, totalPagesValue - 3, totalPagesValue - 2, totalPagesValue - 1, totalPagesValue];
+        return [current - 2, current - 1, current, current + 1, current + 2];
+    };
+
+    const handleSearch = () => {
+        setPage(1);
+    };
+
     const listView = (
         <div className="p-8 space-y-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -298,7 +310,12 @@ const ReportingPage: React.FC = () => {
                     <h1 className="text-3xl font-bold text-gray-900">Reporting &amp; Statistics</h1>
                     <p className="text-gray-500 mt-1">Export usage statistics for any published destination.</p>
                 </div>
-                <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} onSearch={() => undefined} placeholder="Search destination by name or ID..." />
+                <SearchBar
+                    searchTerm={searchTerm}
+                    setSearchTerm={(val) => { setSearchTerm(val); setPage(1); }}
+                    onSearch={handleSearch}
+                    placeholder="Search destination by name or ID..."
+                />
             </div>
 
             <div className="flex flex-wrap gap-3 items-center">
@@ -451,6 +468,73 @@ const ReportingPage: React.FC = () => {
                             ))}
                     </tbody>
                 </table>
+                <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 bg-gray-50">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <span>Rows per page:</span>
+                        <select
+                            className="border border-gray-300 rounded-md px-2 py-1 text-sm"
+                            value={pageSize}
+                            onChange={(e) => {
+                                setPageSize(Number(e.target.value));
+                                setPage(1);
+                            }}
+                        >
+                            {pageSizeOptions.map((size) => (
+                                <option key={size} value={size}>
+                                    {size}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                        <button
+                            type="button"
+                            className={`px-2 py-1 rounded ${page === 1 ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-200'}`}
+                            onClick={() => setPage(1)}
+                            disabled={page === 1}
+                        >
+                            First
+                        </button>
+                        <button
+                            type="button"
+                            className={`px-2 py-1 rounded ${page === 1 ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-200'}`}
+                            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                            disabled={page === 1}
+                        >
+                            Prev
+                        </button>
+                        {getPageNumbers(page, totalPages).map((num) => (
+                            <button
+                                type="button"
+                                key={num}
+                                className={`px-3 py-1 rounded ${num === page ? 'bg-indigo-600 text-white cursor-default' : 'hover:bg-gray-200'}`}
+                                onClick={() => setPage(num)}
+                                disabled={num === page}
+                            >
+                                {num}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            className={`px-2 py-1 rounded ${page === totalPages ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-200'}`}
+                            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                            disabled={page === totalPages}
+                        >
+                            Next
+                        </button>
+                        <button
+                            type="button"
+                            className={`px-2 py-1 rounded ${page === totalPages ? 'text-gray-400 cursor-not-allowed' : 'hover:bg-gray-200'}`}
+                            onClick={() => setPage(totalPages)}
+                            disabled={page === totalPages}
+                        >
+                            Last
+                        </button>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                        Page {page} of {totalPages} · {total} items
+                    </div>
+                </div>
             </div>
         </div>
     );
