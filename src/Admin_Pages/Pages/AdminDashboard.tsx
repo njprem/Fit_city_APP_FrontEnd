@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 
 const FALLBACK_URL =
-  "http://10.0.0.11:5601/app/dashboards#/view/0e2de6a7-70d8-4a39-9cf0-ef067697779c?embed=true&_g=(refreshInterval:(pause:!t,value:60000),time:(from:now-15m,to:now))&_a=()";
+  "https://kibana.dev.kaminjitt.com/app/dashboards#/view/0e2de6a7-70d8-4a39-9cf0-ef067697779c?_g=(refreshInterval:(pause:!t,value:60000),time:(from:now-15m,to:now))&_a=()";
 
 // Kibana embed sized to fill the available admin content area.
 const AdminDashboard: React.FC = () => {
