@@ -689,6 +689,15 @@ export default function DestinationDetailPage() {
             >
               Back to Home
             </button>
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => navigate("/search")}
+                className="rounded-full border border-[#016B71] px-6 py-3 font-bold text-[#016B71] hover:bg-[#016B71] hover:text-white transition"
+              >
+                Go to Search
+              </button>
+            </div>
           </div>
         </div>
         <Footer />

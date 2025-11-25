@@ -20,6 +20,7 @@ const AdminDashboard: React.FC = () => {
             className="absolute inset-0 h-full w-full"
             loading="lazy"
             allowFullScreen
+            sandbox="allow-scripts allow-forms allow-popups"
           />
         </div>
       </div>

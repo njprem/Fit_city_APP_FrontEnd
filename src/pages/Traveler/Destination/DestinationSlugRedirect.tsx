@@ -7,7 +7,10 @@ export default function DestinationSlugRedirect() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!slug) return;
+    if (!slug) {
+      navigate("/search", { replace: true });
+      return;
+    }
 
     (async () => {
       try {
@@ -18,10 +21,10 @@ export default function DestinationSlugRedirect() {
         if (id) {
           navigate(`/destination/${id}`, { replace: true });
         } else {
-          navigate("/", { replace: true });
+          navigate("/search", { replace: true });
         }
       } catch {
-        navigate("/", { replace: true });
+        navigate("/search", { replace: true });
       }
     })();
   }, [slug, navigate]);
