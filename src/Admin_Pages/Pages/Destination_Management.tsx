@@ -340,15 +340,15 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
         // Search functionality
     };
 
-    const handleRetryPublished = () => {
+    const reloadPublishedList = () => {
         setPublishedReloadToken(prev => prev + 1);
     };
 
-    const handleRetryDrafts = () => {
+    const reloadDraftList = () => {
         setDraftReloadToken(prev => prev + 1);
     };
 
-    const handleSubmitDraft = async (changeId?: string | null) => {
+    const submitDraftChangeRequest = async (changeId?: string | null) => {
         const effectiveId = typeof changeId === 'string' && changeId.trim() ? changeId : undefined;
 
         if (!effectiveId) {
@@ -1141,7 +1141,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
             handler: () => {
                 setIsConfirmVisible(false);
                 setConfirmAction(null);
-                handleSubmitDraft(targetId);
+                submitDraftChangeRequest(targetId);
             }
         });
         setIsConfirmVisible(true);
@@ -1482,7 +1482,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                             </p>
                                             <button
                                                 type="button"
-                                                onClick={handleRetryPublished}
+                                                onClick={reloadPublishedList}
                                                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
                                             >
                                                 Retry
@@ -1508,7 +1508,7 @@ const DestinationManagement: React.FC<DestinationManagementProps> = ({ onNavigat
                                             </p>
                                             <button
                                                 type="button"
-                                                onClick={handleRetryDrafts}
+                                                onClick={reloadDraftList}
                                                 className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
                                             >
                                                 Retry
